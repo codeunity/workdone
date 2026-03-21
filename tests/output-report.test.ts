@@ -79,7 +79,7 @@ describe("report output options", () => {
     expect(output).toContain("14:22  api");
     expect(output).toContain("2026-03-18 (Wed)");
     expect(output).toContain("-------------------------------------------------------------------------------");
-    expect(output).toContain("Archive nebula telemetry for interstellar quality benchmarking across al...");
+    expect(output).toContain("Archive nebula telemetry for interstellar quality benchmarking across...");
     expect(output).not.toContain("src/index.ts");
   });
 
