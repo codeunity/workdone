@@ -1,0 +1,19 @@
+{
+  "name": "workdone",
+  "version": "0.1.0",
+  "description": "CLI to report weekly work from local git repos",
+  "type": "module",
+  "bin": {
+    "workdone": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "test": "bun test",
+    "build:win": "bun build --compile --target=bun-windows-x64 src/cli.ts --outfile dist/workdone-windows-x64.exe",
+    "build:mac:arm64": "bun build --compile --target=bun-darwin-arm64 src/cli.ts --outfile dist/workdone-darwin-arm64",
+    "build": "bun run build:win && bun run build:mac:arm64"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

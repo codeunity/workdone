@@ -1,0 +1,93 @@
+name: Release Assets
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  build_release_assets:
+    name: Build release ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows-x64
+            target: bun-windows-x64
+            output: workdone-${{ github.event.release.tag_name }}-windows-x64.exe
+          - os: macos-14
+            label: darwin-arm64
+            target: bun-darwin-arm64
+            output: workdone-${{ github.event.release.tag_name }}-darwin-arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build executable
+        run: bun build --compile --target=${{ matrix.target }} src/cli.ts --outfile dist/${{ matrix.output }}
+
+      - name: Smoke check executable (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          .\dist\${{ matrix.output }} --help
+          .\dist\${{ matrix.output }} report --help
+
+      - name: Smoke check executable (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x ./dist/${{ matrix.output }}
+          ./dist/${{ matrix.output }} --help
+          ./dist/${{ matrix.output }} report --help
+
+      - name: Generate checksum (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $hash = Get-FileHash -Algorithm SHA256 "dist/${{ matrix.output }}"
+          "$($hash.Hash.ToLower())  ${{ matrix.output }}" | Out-File -Encoding ascii "dist/${{ matrix.output }}.sha256"
+
+      - name: Generate checksum (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          shasum -a 256 "dist/${{ matrix.output }}" > "dist/${{ matrix.output }}.sha256"
+
+      - name: Upload intermediate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.label }}
+          path: |
+            dist/${{ matrix.output }}
+            dist/${{ matrix.output }}.sha256
+          if-no-files-found: error
+
+  publish_assets:
+    name: Publish release assets
+    runs-on: ubuntu-latest
+    needs: build_release_assets
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten artifact directory
+        run: |
+          mkdir -p dist-flat
+          find dist -type f -exec cp {} dist-flat/ \;
+
+      - name: Upload assets to GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" dist-flat/* --clobber

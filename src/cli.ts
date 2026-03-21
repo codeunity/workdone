@@ -1,0 +1,794 @@
+#!/usr/bin/env bun
+
+import path from "node:path";
+import { stat } from "node:fs/promises";
+import { loadConfig, saveConfig } from "./core/config";
+import { discoverGitRepos } from "./core/discover";
+import { getGlobalGitUserEmail } from "./core/git";
+import { printReport, printValidationResults } from "./core/output";
+import { getConfigPath, normalizeInputPath } from "./core/paths";
+import { buildWeeklyReport } from "./core/report";
+import { validateSource, validateSources } from "./core/validate";
+import type { Source } from "./types";
+
+const VERSION = "0.1.0";
+
+function printTopHelp(): void {
+  console.log(`workdone - Weekly work report from your registered sources
+
+USAGE
+  workdone <command> [options]
+
+COMMANDS
+  config                 Print config file location
+  report                 Print your current week's report (use --source, --view, and --format)
+  sources list           List registered sources
+  sources add <path>     Register a local git repository source (use --name for alias)
+  sources remove <arg>   Remove a registered source by alias or path
+  sources validate       Validate all registered sources
+  sources discover <folder>  Find and add git repos in a folder
+  help [command]         Show help for a command
+
+GLOBAL OPTIONS
+  -h, --help             Show help
+  -v, --version          Show version
+
+GET STARTED
+  workdone sources discover ~/code
+  workdone sources validate
+  workdone report --view timeline
+
+EXAMPLES
+  workdone report
+  workdone report --view timeline
+  workdone report --view by-source
+  workdone report --format markdown
+  workdone report --source myrepo --view timeline
+  workdone report --files --view by-source
+  workdone help report`);
+}
+
+function printReportHelp(): void {
+  console.log(`Print the current week's work report.
+
+USAGE
+  workdone report [options]
+
+DESCRIPTION
+  Generates a report for the current local week:
+  Monday 00:00 (local time) through now.
+
+  Includes only commits authored by your global git email:
+  git config --global user.email
+
+VIEWS
+  timeline               Linear commit overview grouped by day (default)
+  by-source              Commits grouped by source, then by day
+
+FORMATS
+  text                   Terminal-friendly aligned columns
+  markdown               Markdown headings and tables for sharing/export
+
+OUTPUT
+  - Commits grouped by day
+  - For each commit:
+      source alias, hash, time, subject, changed files, aggregated line changes
+  - With --files:
+      include per-file path and line changes
+
+OPTIONS
+  -s, --source <source>  Limit report to one source (alias or path)
+  -f, --files            Include per-file changes
+  -V, --view <view>      Report layout: timeline | by-source (default: timeline)
+  -F, --format <format>  Output format: text | markdown (default: text)
+  -h, --help             Show help
+
+EXAMPLES
+  workdone report
+  workdone report --view timeline
+  workdone report --view by-source
+  workdone report --format markdown
+  workdone report --files --format markdown
+  workdone report --source api --view by-source --format markdown
+
+REQUIREMENTS
+  - git global user.email must be set
+  - selected/registered source must be a valid local git repository`);
+}
+
+function printConfigHelp(): void {
+  console.log(`Print the config file location.
+
+USAGE
+  workdone config [options]
+
+DESCRIPTION
+  Prints the absolute path to the config file.
+
+OPTIONS
+  -h, --help             Show help
+
+EXAMPLES
+  workdone config`);
+}
+
+function printSourcesHelp(): void {
+  console.log(`Manage report sources.
+
+USAGE
+  workdone sources <command> [options]
+
+COMMANDS
+  list                   List registered sources
+  add <path>             Add a local git repository source
+  remove <path-or-name>  Remove a source by path or alias
+  validate               Validate all registered sources
+  discover <folder>      Find and add git repos in a folder
+
+EXAMPLES
+  workdone sources list
+  workdone sources add ~/code/project-a --name api
+  workdone sources remove api
+  workdone sources validate
+  workdone sources discover ~/code
+  workdone sources discover ~/code --max-depth 2 --dry-run`);
+}
+
+function printSourcesDiscoverHelp(): void {
+  console.log(`Find and add local git repositories under a folder.
+
+USAGE
+  workdone sources discover <folder> [options]
+
+ARGUMENTS
+  <folder>               Root folder to scan recursively
+
+OPTIONS
+  --max-depth <n>        Maximum scan depth (default: 3)
+  --dry-run              Show what would be added without writing config
+  -h, --help             Show help
+
+BEHAVIOR
+  - Scans recursively from <folder> up to max depth
+  - Adds only valid local git repositories
+  - Default alias is the repo folder name
+  - Skips already registered paths
+  - Skips alias conflicts (case-insensitive) and reports them
+
+RESULT
+  - Prints per-repo status: ADD or SKIP with reason
+  - Prints summary: "Found <n> repos, added <a>, skipped <s>"
+  - With --dry-run, no changes are written
+
+EXAMPLES
+  workdone sources discover ~/code
+  workdone sources discover ~/code --max-depth 2
+  workdone sources discover ~/code --dry-run`);
+}
+
+function printSourcesListHelp(): void {
+  console.log(`List all registered sources.
+
+USAGE
+  workdone sources list [options]
+
+OUTPUT
+  Index, alias, type, normalized absolute path.
+
+OPTIONS
+  -h, --help             Show help
+
+EXAMPLES
+  workdone sources list`);
+}
+
+function printSourcesAddHelp(): void {
+  console.log(`Register a new local git repository source.
+
+USAGE
+  workdone sources add <path> [options]
+
+ARGUMENTS
+  <path>                 Path to a local git repository
+
+OPTIONS
+  --name <name>          Alias for this source (default: folder name)
+  -h, --help             Show help
+
+BEHAVIOR
+  - Path is normalized to an absolute canonical path
+  - Fails if path does not exist, is not a directory, or is not a git repo
+  - Duplicate paths are rejected
+  - Alias names must be unique (case-insensitive)
+
+EXAMPLES
+  workdone sources add .
+  workdone sources add ~/code/work-repo
+  workdone sources add ~/code/work-repo --name work
+  workdone sources add "C:\\dev\\project-x"`);
+}
+
+function printSourcesRemoveHelp(): void {
+  console.log(`Remove a registered source by path or alias.
+
+USAGE
+  workdone sources remove <path-or-name> [options]
+
+ARGUMENTS
+  <path-or-name>         Alias (case-insensitive) or source path
+
+BEHAVIOR
+  - Alias matches are case-insensitive
+  - Path input is normalized before matching
+  - Fails if source is not registered
+
+OPTIONS
+  -h, --help             Show help
+
+EXAMPLES
+  workdone sources remove api
+  workdone sources remove API
+  workdone sources remove ~/code/work-repo`);
+}
+
+function printSourcesValidateHelp(): void {
+  console.log(`Validate all registered sources and report their status.
+
+USAGE
+  workdone sources validate [options]
+
+CHECKS
+  - path exists
+  - path is a directory
+  - path is a git repository
+  - path is accessible
+
+RESULT
+  - Prints status per source: VALID or INVALID (<reason>)
+  - Prints summary: "<n> valid, <m> invalid"
+  - Exit code 0 when all valid, 1 when any invalid
+
+OPTIONS
+  -h, --help             Show help
+
+EXAMPLES
+  workdone sources validate`);
+}
+
+function suggestCommand(unknown: string): string | null {
+  if (unknown === "sourced") {
+    return "sources";
+  }
+  if (unknown === "source") {
+    return "sources";
+  }
+  return null;
+}
+
+function fail(message: string): never {
+  console.error(`error: ${message}`);
+  process.exit(1);
+}
+
+function normalizeAlias(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function padRight(value: string, width: number): string {
+  return value.padEnd(width, " ");
+}
+
+function padLeft(value: string, width: number): string {
+  return value.padStart(width, " ");
+}
+
+function printSourcesTable(sources: Source[]): void {
+  const indexHeader = "#";
+  const nameHeader = "Name";
+  const typeHeader = "Type";
+  const pathHeader = "Path";
+
+  const indexWidth = Math.max(indexHeader.length, String(sources.length).length);
+  const nameWidth = Math.max(nameHeader.length, ...sources.map((source) => source.name.length));
+  const typeWidth = Math.max(typeHeader.length, ...sources.map((source) => source.type.length));
+
+  console.log(
+    `${padLeft(indexHeader, indexWidth)}  ${padRight(nameHeader, nameWidth)}  ${padRight(typeHeader, typeWidth)}  ${pathHeader}`,
+  );
+  console.log(`${"-".repeat(indexWidth)}  ${"-".repeat(nameWidth)}  ${"-".repeat(typeWidth)}  ${"-".repeat(pathHeader.length)}`);
+
+  sources.forEach((source, idx) => {
+    const index = String(idx + 1);
+    console.log(
+      `${padLeft(index, indexWidth)}  ${padRight(source.name, nameWidth)}  ${padRight(source.type, typeWidth)}  ${source.path}`,
+    );
+  });
+}
+
+interface DiscoverRow {
+  action: "ADD" | "SKIP";
+  name: string;
+  type: string;
+  path: string;
+  reason: string;
+}
+
+function printDiscoverTable(rows: DiscoverRow[]): void {
+  const actionHeader = "Action";
+  const nameHeader = "Name";
+  const typeHeader = "Type";
+  const pathHeader = "Path";
+  const reasonHeader = "Reason";
+
+  const actionWidth = Math.max(actionHeader.length, ...rows.map((row) => row.action.length));
+  const nameWidth = Math.max(nameHeader.length, ...rows.map((row) => row.name.length));
+  const typeWidth = Math.max(typeHeader.length, ...rows.map((row) => row.type.length));
+  const pathWidth = Math.max(pathHeader.length, ...rows.map((row) => row.path.length));
+
+  console.log(
+    `${padRight(actionHeader, actionWidth)}  ${padRight(nameHeader, nameWidth)}  ${padRight(typeHeader, typeWidth)}  ${padRight(pathHeader, pathWidth)}  ${reasonHeader}`,
+  );
+  console.log(
+    `${"-".repeat(actionWidth)}  ${"-".repeat(nameWidth)}  ${"-".repeat(typeWidth)}  ${"-".repeat(pathWidth)}  ${"-".repeat(reasonHeader.length)}`,
+  );
+
+  for (const row of rows) {
+    console.log(
+      `${padRight(row.action, actionWidth)}  ${padRight(row.name, nameWidth)}  ${padRight(row.type, typeWidth)}  ${padRight(row.path, pathWidth)}  ${row.reason}`,
+    );
+  }
+}
+
+function parseSourcesAddOptions(args: string[]): { pathArg: string; name?: string } {
+  const pathArg = args[1];
+  if (!pathArg) {
+    fail("missing required argument '<path>'\nTry: workdone sources add --help");
+  }
+
+  let name: string | undefined;
+  for (let i = 2; i < args.length; i += 1) {
+    const token = args[i];
+    if (token === "--name") {
+      const value = args[i + 1];
+      if (!value) {
+        fail("missing value for '--name'\nTry: workdone sources add --help");
+      }
+      name = value;
+      i += 1;
+      continue;
+    }
+    fail(`unknown option '${token}'\nTry: workdone sources add --help`);
+  }
+
+  return { pathArg, name };
+}
+
+function parseSourcesDiscoverOptions(args: string[]): { folder: string; maxDepth: number; dryRun: boolean } {
+  const folder = args[1];
+  if (!folder || folder.startsWith("-")) {
+    fail("missing required argument '<folder>'\nTry: workdone sources discover --help");
+  }
+
+  let maxDepth = 3;
+  let dryRun = false;
+
+  for (let i = 2; i < args.length; i += 1) {
+    const token = args[i];
+    if (token === "--max-depth") {
+      const value = args[i + 1];
+      if (!value) {
+        fail("missing value for '--max-depth'\nTry: workdone sources discover --help");
+      }
+      if (!/^\d+$/.test(value)) {
+        fail("invalid value for '--max-depth': must be a non-negative integer");
+      }
+      const parsed = Number.parseInt(value, 10);
+      maxDepth = parsed;
+      i += 1;
+      continue;
+    }
+    if (token === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    fail(`unknown option '${token}'\nTry: workdone sources discover --help`);
+  }
+
+  return { folder, maxDepth, dryRun };
+}
+
+function parseReportOptions(args: string[]): {
+  sourceSelector?: string;
+  files: boolean;
+  view: "timeline" | "by-source";
+  format: "text" | "markdown";
+} {
+  let sourceSelector: string | undefined;
+  let files = false;
+  let view: "timeline" | "by-source" = "timeline";
+  let format: "text" | "markdown" = "text";
+  for (let i = 0; i < args.length; i += 1) {
+    const token = args[i];
+    if (token === "-h" || token === "--help") {
+      printReportHelp();
+      process.exit(0);
+    }
+    if (token === "--source" || token === "-s") {
+      const value = args[i + 1];
+      if (!value) {
+        fail("missing value for '--source'\nTry: workdone report --help");
+      }
+      sourceSelector = value;
+      i += 1;
+      continue;
+    }
+    if (token === "--files" || token === "-f") {
+      files = true;
+      continue;
+    }
+    if (token === "--view" || token === "-V") {
+      const value = args[i + 1];
+      if (!value) {
+        fail("missing value for '--view'\nTry: workdone report --help");
+      }
+      if (value !== "timeline" && value !== "by-source") {
+        fail(`invalid value for '--view': ${value}\nAllowed values: timeline, by-source\nTry: workdone report --help`);
+      }
+      view = value;
+      i += 1;
+      continue;
+    }
+    if (token === "--format" || token === "-F") {
+      const value = args[i + 1];
+      if (!value) {
+        fail("missing value for '--format'\nTry: workdone report --help");
+      }
+      if (value !== "text" && value !== "markdown") {
+        fail(`invalid value for '--format': ${value}\nAllowed values: text, markdown\nTry: workdone report --help`);
+      }
+      format = value;
+      i += 1;
+      continue;
+    }
+    fail(`unknown option '${token}'\nTry: workdone report --help`);
+  }
+  return { sourceSelector, files, view, format };
+}
+
+function findSourceByAliasOrPath(selector: string, sources: Source[]): Source | null {
+  const alias = normalizeAlias(selector);
+  const byAlias = sources.find((source) => normalizeAlias(source.name) === alias);
+  if (byAlias) {
+    return byAlias;
+  }
+
+  const normalizedPath = normalizeInputPath(selector);
+  const byPath = sources.find((source) => source.path === normalizedPath);
+  return byPath ?? null;
+}
+
+async function handleSources(args: string[]): Promise<void> {
+  const sub = args[0];
+  if (!sub || sub === "-h" || sub === "--help") {
+    printSourcesHelp();
+    return;
+  }
+
+  if (sub === "list") {
+    if (args[1] === "-h" || args[1] === "--help") {
+      printSourcesListHelp();
+      return;
+    }
+    const config = await loadConfig();
+    if (config.sources.length === 0) {
+      console.log("No sources registered.");
+      console.log("Add one with: workdone sources add <path>");
+      return;
+    }
+    printSourcesTable(config.sources);
+    return;
+  }
+
+  if (sub === "add") {
+    if (args[1] === "-h" || args[1] === "--help") {
+      printSourcesAddHelp();
+      return;
+    }
+    const parsed = parseSourcesAddOptions(args);
+    const rawPath = parsed.pathArg;
+    const normalized = normalizeInputPath(rawPath);
+    const defaultName = path.basename(normalized);
+    const requestedName = parsed.name?.trim() ?? defaultName;
+    if (requestedName.trim() === "") {
+      fail("source name cannot be empty\nTry: workdone sources add --help");
+    }
+    const source = { type: "git-local" as const, path: normalized, name: requestedName };
+    const validation = await validateSource(source);
+    if (!validation.valid) {
+      fail(`cannot add source '${normalized}': ${validation.reason}\nTry: workdone sources add --help`);
+    }
+
+    const config = await loadConfig();
+    if (config.sources.some((entry) => entry.path === source.path)) {
+      fail(`source already registered: ${normalized}`);
+    }
+    if (config.sources.some((entry) => normalizeAlias(entry.name) === normalizeAlias(source.name))) {
+      fail(`source name already registered: ${source.name}\nTry: workdone sources add <path> --name <unique-name>`);
+    }
+    config.sources.push(source);
+    await saveConfig(config);
+    console.log(`Added source: ${source.name} (${normalized})`);
+    return;
+  }
+
+  if (sub === "remove") {
+    if (args[1] === "-h" || args[1] === "--help") {
+      printSourcesRemoveHelp();
+      return;
+    }
+    const pathOrName = args[1];
+    if (!pathOrName) {
+      fail("missing required argument '<path-or-name>'\nTry: workdone sources remove --help");
+    }
+    const config = await loadConfig();
+    const aliasMatch = config.sources.find((source) => normalizeAlias(source.name) === normalizeAlias(pathOrName));
+    const normalizedPath = normalizeInputPath(pathOrName);
+    const pathMatch = config.sources.find((source) => source.path === normalizedPath);
+    const target = aliasMatch ?? pathMatch;
+    if (!target) {
+      fail(`source not found: ${pathOrName}\nTry: workdone sources list`);
+    }
+    config.sources = config.sources.filter((source) => source.path !== target.path);
+    await saveConfig(config);
+    console.log(`Removed source: ${target.name} (${target.path})`);
+    return;
+  }
+
+  if (sub === "validate") {
+    if (args[1] === "-h" || args[1] === "--help") {
+      printSourcesValidateHelp();
+      return;
+    }
+    const config = await loadConfig();
+    if (config.sources.length === 0) {
+      console.log("No sources registered.");
+      console.log("Add one with: workdone sources add <path>");
+      return;
+    }
+    const results = await validateSources(config.sources);
+    const invalidCount = printValidationResults(results);
+    if (invalidCount > 0) {
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (sub === "discover") {
+    if (args[1] === "-h" || args[1] === "--help") {
+      printSourcesDiscoverHelp();
+      return;
+    }
+
+    const options = parseSourcesDiscoverOptions(args);
+    const rootFolder = normalizeInputPath(options.folder);
+    const rootStat = await stat(rootFolder).catch(() => null);
+    if (!rootStat) {
+      fail(`folder not found: ${rootFolder}`);
+    }
+    if (!rootStat.isDirectory()) {
+      fail(`not a directory: ${rootFolder}`);
+    }
+
+    console.log(
+      `Scanning: ${rootFolder} (max depth: ${options.maxDepth}${options.dryRun ? ", dry run" : ""})\n`,
+    );
+
+    const discoveredRepos = await discoverGitRepos(rootFolder, options.maxDepth);
+    if (discoveredRepos.length === 0) {
+      console.log("No git repositories found.");
+      console.log("Found 0 repos, added 0, skipped 0");
+      if (options.dryRun) {
+        console.log("Dry run: no changes written");
+      }
+      return;
+    }
+
+    const config = await loadConfig();
+    const existingPaths = new Set(config.sources.map((source) => source.path));
+    const existingAliases = new Set(config.sources.map((source) => normalizeAlias(source.name)));
+    const batchAliases = new Set<string>();
+
+    const toAdd: Source[] = [];
+    const rows: DiscoverRow[] = [];
+    let skipped = 0;
+
+    for (const repoPath of discoveredRepos) {
+      const normalizedRepoPath = normalizeInputPath(repoPath);
+      if (existingPaths.has(normalizedRepoPath)) {
+        rows.push({
+          action: "SKIP",
+          name: "",
+          type: "",
+          path: normalizedRepoPath,
+          reason: "path already registered",
+        });
+        skipped += 1;
+        continue;
+      }
+
+      const alias = path.basename(normalizedRepoPath);
+      const aliasKey = normalizeAlias(alias);
+      if (existingAliases.has(aliasKey) || batchAliases.has(aliasKey)) {
+        rows.push({
+          action: "SKIP",
+          name: "",
+          type: "",
+          path: normalizedRepoPath,
+          reason: `alias conflict: ${alias}`,
+        });
+        skipped += 1;
+        continue;
+      }
+
+      const source: Source = { type: "git-local", path: normalizedRepoPath, name: alias };
+      toAdd.push(source);
+      batchAliases.add(aliasKey);
+      rows.push({
+        action: "ADD",
+        name: alias,
+        type: "git-local",
+        path: normalizedRepoPath,
+        reason: "",
+      });
+    }
+
+    if (rows.length > 0) {
+      printDiscoverTable(rows);
+    }
+
+    if (!options.dryRun && toAdd.length > 0) {
+      config.sources.push(...toAdd);
+      await saveConfig(config);
+    }
+
+    console.log(`\nFound ${discoveredRepos.length} repos, added ${toAdd.length}, skipped ${skipped}`);
+    if (options.dryRun) {
+      console.log("Dry run: no changes written");
+    }
+    return;
+  }
+
+  fail(`unknown subcommand 'sources ${sub}'\nTry: workdone sources --help`);
+}
+
+async function handleReport(args: string[]): Promise<void> {
+  const options = parseReportOptions(args);
+  const currentUserEmail = (await getGlobalGitUserEmail()).trim().toLowerCase();
+
+  const config = await loadConfig();
+  if (config.sources.length === 0) {
+    console.log("No sources registered.");
+    console.log("Get started:");
+    console.log("  workdone sources add <path>");
+    console.log("  workdone sources validate");
+    return;
+  }
+
+  if (options.sourceSelector) {
+    const selectedSource = findSourceByAliasOrPath(options.sourceSelector, config.sources);
+    if (!selectedSource) {
+      fail(`source not registered: ${options.sourceSelector}\nTry: workdone sources list`);
+    }
+    const validation = await validateSource(selectedSource);
+    if (!validation.valid) {
+      fail(`selected source is invalid: ${validation.reason}\nTry: workdone sources validate`);
+    }
+    const report = await buildWeeklyReport([selectedSource], currentUserEmail);
+    printReport(report, { includeFiles: options.files, view: options.view, format: options.format });
+    return;
+  }
+
+  const validations = await validateSources(config.sources);
+  const validSources = validations.filter((result) => result.valid).map((result) => result.source);
+  const invalidSources = validations.filter((result) => !result.valid);
+  if (invalidSources.length > 0) {
+    console.log("Skipping invalid sources:");
+    for (const invalid of invalidSources) {
+      console.log(`- ${invalid.source.name} (${invalid.reason})`);
+    }
+    console.log("");
+  }
+
+  if (validSources.length === 0) {
+    fail("no valid sources available\nTry: workdone sources validate");
+  }
+
+  const report = await buildWeeklyReport(validSources, currentUserEmail);
+  printReport(report, { includeFiles: options.files, view: options.view, format: options.format });
+}
+
+function printHelpForPath(pathParts: string[]): void {
+  if (pathParts.length === 0) {
+    printTopHelp();
+    return;
+  }
+  const joined = pathParts.join(" ");
+  switch (joined) {
+    case "config":
+      printConfigHelp();
+      return;
+    case "report":
+      printReportHelp();
+      return;
+    case "sources":
+      printSourcesHelp();
+      return;
+    case "sources list":
+      printSourcesListHelp();
+      return;
+    case "sources add":
+      printSourcesAddHelp();
+      return;
+    case "sources remove":
+      printSourcesRemoveHelp();
+      return;
+    case "sources validate":
+      printSourcesValidateHelp();
+      return;
+    case "sources discover":
+      printSourcesDiscoverHelp();
+      return;
+    default:
+      fail(`unknown help topic '${joined}'\nTry: workdone --help`);
+  }
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const command = args[0];
+
+  if (!command || command === "-h" || command === "--help") {
+    printTopHelp();
+    return;
+  }
+
+  if (command === "-v" || command === "--version") {
+    console.log(VERSION);
+    return;
+  }
+
+  if (command === "help") {
+    printHelpForPath(args.slice(1));
+    return;
+  }
+
+  if (command === "config") {
+    if (args[1] === "-h" || args[1] === "--help") {
+      printConfigHelp();
+      return;
+    }
+    console.log(getConfigPath());
+    return;
+  }
+
+  if (command === "report") {
+    await handleReport(args.slice(1));
+    return;
+  }
+
+  if (command === "sources") {
+    await handleSources(args.slice(1));
+    return;
+  }
+
+  const suggestion = suggestCommand(command);
+  if (suggestion) {
+    fail(`unknown command '${command}'\nDid you mean '${suggestion}'?\nTry: workdone --help`);
+  }
+  fail(`unknown command '${command}'\nTry: workdone --help`);
+}
+
+main().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  fail(message);
+});
