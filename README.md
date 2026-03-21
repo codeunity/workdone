@@ -79,6 +79,7 @@ This repository includes GitHub Actions workflows for CI, changelog/versioning, 
 - `Release Please` (`.github/workflows/release-please.yml`)
   - Uses conventional commits to maintain `CHANGELOG.md`
   - Creates release PRs and GitHub releases
+  - Automatically triggers release asset publishing when a release is created
 - `Release Assets` (`.github/workflows/release-assets.yml`)
   - Builds release binaries for Windows x64 and macOS arm64
   - Uploads binaries and SHA256 checksum files to the GitHub release
