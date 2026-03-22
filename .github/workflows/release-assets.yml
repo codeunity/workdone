@@ -34,10 +34,12 @@ jobs:
           - os: windows-latest
             label: windows-x64
             target: bun-windows-x64
+            output: workdone-windows-x64.exe
             ext: .exe
           - os: macos-14
             label: darwin-arm64
             target: bun-darwin-arm64
+            output: workdone-darwin-arm64
             ext: ""
     steps:
       - name: Checkout
@@ -53,14 +55,14 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $output = "workdone-${{ env.RELEASE_TAG }}-${{ matrix.label }}${{ matrix.ext }}"
+          $output = "${{ matrix.output }}"
           bun build --compile --target=${{ matrix.target }} src/cli.ts --outfile "dist/$output"
           "OUTPUT_NAME=$output" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build executable (macOS)
         if: runner.os == 'macOS'
         run: |
-          output="workdone-${RELEASE_TAG}-${{ matrix.label }}${{ matrix.ext }}"
+          output="${{ matrix.output }}"
           bun build --compile --target=${{ matrix.target }} src/cli.ts --outfile "dist/$output"
           echo "OUTPUT_NAME=$output" >> "$GITHUB_ENV"
 
