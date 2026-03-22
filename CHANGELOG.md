@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/codeunity/workdone/compare/v0.1.2...v0.2.0) (2026-03-22)
+
+
+### Features
+
+* add cross-platform installer scripts ([#13](https://github.com/codeunity/workdone/issues/13)) ([9890086](https://github.com/codeunity/workdone/commit/9890086a8dd4bd89555aa96a784a2aba89102af1))
+
 ## [0.1.2](https://github.com/codeunity/workdone/compare/v0.1.1...v0.1.2) (2026-03-21)
 
 
