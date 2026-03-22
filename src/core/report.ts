@@ -1,6 +1,6 @@
 import { getWeeklyCommits } from "./git";
 import { getCurrentWeekRange, toDateKey, toDayLabel } from "./time";
-import type { DayGroup, Source, WeeklyReport } from "../types";
+import type { CommitEntry, DayGroup, Source, WeeklyReport } from "../types";
 
 export async function buildWeeklyReport(
   sources: Source[],
@@ -13,7 +13,7 @@ export async function buildWeeklyReport(
 
   const allCommits = filterCommitsByAuthorEmail(
     await Promise.all(sources.map((source) => getWeeklyCommits(source.path, source.name, sinceIso, untilIso)))
-      .then((results) => results.flat()),
+      .then((results) => dedupeCommitsByHash(results.flat())),
     authorEmail,
   );
 
@@ -52,4 +52,19 @@ export function filterCommitsByAuthorEmail<T extends { authorEmail: string }>(
 ): T[] {
   const expected = email.trim().toLowerCase();
   return commits.filter((commit) => commit.authorEmail.trim().toLowerCase() === expected);
+}
+
+export function dedupeCommitsByHash(commits: CommitEntry[]): CommitEntry[] {
+  const seen = new Set<string>();
+  const unique: CommitEntry[] = [];
+
+  for (const commit of commits) {
+    if (seen.has(commit.hash)) {
+      continue;
+    }
+    seen.add(commit.hash);
+    unique.push(commit);
+  }
+
+  return unique;
 }

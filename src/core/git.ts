@@ -28,6 +28,11 @@ function runGit(args: string[], cwd: string): Promise<ExecResult> {
   });
 }
 
+function gitErrorMessage(stderr: string): string {
+  const trimmed = stderr.trim();
+  return trimmed === "" ? "git command failed" : trimmed;
+}
+
 export async function isGitRepo(repoPath: string): Promise<boolean> {
   const result = await runGit(["rev-parse", "--is-inside-work-tree"], repoPath).catch(() => {
     return { stdout: "", stderr: "", code: 1 };
@@ -71,6 +76,15 @@ export async function getGlobalGitUserEmail(): Promise<string> {
   return email;
 }
 
+export async function syncGitSource(repoPath: string): Promise<void> {
+  const result = await runGit(["fetch", "--all", "--prune"], repoPath).catch(() => {
+    return { stdout: "", stderr: "", code: 1 };
+  });
+  if (result.code !== 0) {
+    throw new Error(gitErrorMessage(result.stderr));
+  }
+}
+
 function parseNumstat(line: string): FileChange | null {
   const parts = line.split("\t");
   if (parts.length < 3) {
@@ -106,6 +120,8 @@ export async function getWeeklyCommits(
   const format = `${COMMIT_PREFIX}%H|%aI|%ae|%s`;
   const args = [
     "log",
+    "--branches",
+    "--remotes",
     `--since=${sinceIso}`,
     `--until=${untilIso}`,
     `--pretty=format:${format}`,
@@ -114,7 +130,7 @@ export async function getWeeklyCommits(
 
   const result = await runGit(args, repoPath);
   if (result.code !== 0) {
-    throw new Error(`Failed to read git log for ${repoPath}: ${result.stderr.trim()}`);
+    throw new Error(`Failed to read git log for ${repoPath}: ${gitErrorMessage(result.stderr)}`);
   }
 
   const lines = result.stdout.split(/\r?\n/);

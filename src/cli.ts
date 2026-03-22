@@ -4,7 +4,7 @@ import path from "node:path";
 import { stat } from "node:fs/promises";
 import { loadConfig, saveConfig } from "./core/config";
 import { discoverGitRepos } from "./core/discover";
-import { getGlobalGitUserEmail } from "./core/git";
+import { getGlobalGitUserEmail, syncGitSource } from "./core/git";
 import { printReport, printValidationResults } from "./core/output";
 import { getConfigPath, normalizeInputPath } from "./core/paths";
 import { buildWeeklyReport } from "./core/report";
@@ -22,6 +22,7 @@ USAGE
 COMMANDS
   config                 Print config file location
   report                 Print your current week's report (use --source, --view, and --format)
+  sync                   Fetch all remotes for registered sources before reporting across machines
   sources list           List registered sources
   sources add <path>     Register a local git repository source (use --name for alias)
   sources remove <arg>   Remove a registered source by alias or path
@@ -35,10 +36,13 @@ GLOBAL OPTIONS
 
 GET STARTED
   workdone sources discover ~/code
+  workdone sync
   workdone sources validate
   workdone report --view timeline
 
 EXAMPLES
+  workdone sync
+  workdone sync --source myrepo
   workdone report
   workdone report --view timeline
   workdone report --view by-source
@@ -60,6 +64,9 @@ DESCRIPTION
 
   Includes only commits authored by your global git email:
   git config --global user.email
+
+  Scans commits reachable from local branches and remote-tracking
+  branches already present in the local clone.
 
 VIEWS
   timeline               Linear commit overview grouped by day (default)
@@ -84,6 +91,7 @@ OPTIONS
   -h, --help             Show help
 
 EXAMPLES
+  workdone sync
   workdone report
   workdone report --view timeline
   workdone report --view by-source
@@ -94,6 +102,31 @@ EXAMPLES
 REQUIREMENTS
   - git global user.email must be set
   - selected/registered source must be a valid local git repository`);
+}
+
+function printSyncHelp(): void {
+  console.log(`Fetch all remotes for registered sources.
+
+USAGE
+  workdone sync [options]
+
+DESCRIPTION
+  Runs 'git fetch --all --prune' for each selected source so work pushed
+  from another machine becomes available to local reporting.
+
+OPTIONS
+  -s, --source <source>  Sync one source by alias or path
+  -h, --help             Show help
+
+RESULT
+  - Prints one line per source: OK or FAIL
+  - Continues through all selected sources
+  - Exit code 0 when all sources synced, 1 when any source failed
+
+EXAMPLES
+  workdone sync
+  workdone sync --source api
+  workdone sync --source ~/code/work-repo`);
 }
 
 function printConfigHelp(): void {
@@ -455,6 +488,30 @@ function parseReportOptions(args: string[]): {
   return { sourceSelector, files, view, format };
 }
 
+function parseSyncOptions(args: string[]): { sourceSelector?: string } {
+  let sourceSelector: string | undefined;
+
+  for (let i = 0; i < args.length; i += 1) {
+    const token = args[i];
+    if (token === "-h" || token === "--help") {
+      printSyncHelp();
+      process.exit(0);
+    }
+    if (token === "--source" || token === "-s") {
+      const value = args[i + 1];
+      if (!value) {
+        fail("missing value for '--source'\nTry: workdone sync --help");
+      }
+      sourceSelector = value;
+      i += 1;
+      continue;
+    }
+    fail(`unknown option '${token}'\nTry: workdone sync --help`);
+  }
+
+  return { sourceSelector };
+}
+
 function findSourceByAliasOrPath(selector: string, sources: Source[]): Source | null {
   const alias = normalizeAlias(selector);
   const byAlias = sources.find((source) => normalizeAlias(source.name) === alias);
@@ -707,6 +764,55 @@ async function handleReport(args: string[]): Promise<void> {
   printReport(report, { includeFiles: options.files, view: options.view, format: options.format });
 }
 
+async function handleSync(args: string[]): Promise<void> {
+  const options = parseSyncOptions(args);
+  const config = await loadConfig();
+
+  if (config.sources.length === 0) {
+    console.log("No sources registered.");
+    console.log("Add one with: workdone sources add <path>");
+    return;
+  }
+
+  let selectedSources = config.sources;
+  if (options.sourceSelector) {
+    const selectedSource = findSourceByAliasOrPath(options.sourceSelector, config.sources);
+    if (!selectedSource) {
+      fail(`source not registered: ${options.sourceSelector}\nTry: workdone sources list`);
+    }
+    selectedSources = [selectedSource];
+  }
+
+  const validations = await validateSources(selectedSources);
+  const validSources = validations.filter((result) => result.valid).map((result) => result.source);
+  const invalidSources = validations.filter((result) => !result.valid);
+
+  let failureCount = 0;
+
+  for (const invalid of invalidSources) {
+    console.log(`FAIL ${invalid.source.name}  invalid source (${invalid.reason})`);
+    failureCount += 1;
+  }
+
+  for (const source of validSources) {
+    try {
+      await syncGitSource(source.path);
+      console.log(`OK   ${source.name}  fetched all remotes`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`FAIL ${source.name}  ${message}`);
+      failureCount += 1;
+    }
+  }
+
+  const successCount = validSources.length - (failureCount - invalidSources.length);
+  console.log(`\nSynced ${successCount} sources, failed ${failureCount}`);
+
+  if (failureCount > 0) {
+    process.exit(1);
+  }
+}
+
 function printHelpForPath(pathParts: string[]): void {
   if (pathParts.length === 0) {
     printTopHelp();
@@ -719,6 +825,9 @@ function printHelpForPath(pathParts: string[]): void {
       return;
     case "report":
       printReportHelp();
+      return;
+    case "sync":
+      printSyncHelp();
       return;
     case "sources":
       printSourcesHelp();
@@ -773,6 +882,11 @@ async function main(): Promise<void> {
 
   if (command === "report") {
     await handleReport(args.slice(1));
+    return;
+  }
+
+  if (command === "sync") {
+    await handleSync(args.slice(1));
     return;
   }
 

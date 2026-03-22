@@ -38,6 +38,8 @@ If your shell does not pick up the new PATH entry immediately, open a new termin
 
 ## Commands
 
+- `workdone sync`
+- `workdone sync --source <alias-or-path>`
 - `workdone report`
 - `workdone report --source <alias-or-path>`
 - `workdone report --files`
@@ -52,6 +54,15 @@ If your shell does not pick up the new PATH entry immediately, open a new termin
 - `workdone sources discover <folder> [--max-depth <n>] [--dry-run]`
 
 Weeks start on Monday in local time.
+
+To include work pushed from another machine, run:
+
+```bash
+workdone sync
+workdone report
+```
+
+`sync` runs `git fetch --all --prune` for your registered repos. `report` then scans commits from local branches and remote-tracking branches already present in each local clone, while still filtering by the current week and your global git email.
 
 ## Development
 

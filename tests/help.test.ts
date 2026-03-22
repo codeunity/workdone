@@ -16,6 +16,7 @@ describe("help output", () => {
     const output = runCli(["--help"]);
     expect(output).toContain("config                 Print config file location");
     expect(output).toContain("report                 Print your current week's report (use --source, --view, and --format)");
+    expect(output).toContain("sync                   Fetch all remotes for registered sources before reporting across machines");
   });
 
   it("supports help config topic", () => {
@@ -38,5 +39,13 @@ describe("help output", () => {
     expect(output).toContain("-V, --view <view>      Report layout: timeline | by-source (default: timeline)");
     expect(output).toContain("-F, --format <format>  Output format: text | markdown (default: text)");
     expect(output).toContain("git config --global user.email");
+    expect(output).toContain("local branches and remote-tracking");
+  });
+
+  it("supports sync help topic", () => {
+    const output = runCli(["help", "sync"]);
+    expect(output).toContain("workdone sync [options]");
+    expect(output).toContain("git fetch --all --prune");
+    expect(output).toContain("-s, --source <source>  Sync one source by alias or path");
   });
 });
