@@ -26,6 +26,11 @@ jobs:
       - name: Run tests
         run: bun test
 
+      - name: Validate installer syntax
+        run: |
+          sh -n ./install.sh
+          pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -Raw './install.ps1')) | Out-Null"
+
       - name: Smoke check CLI help
         run: |
           bun run src/cli.ts --help

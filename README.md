@@ -5,6 +5,37 @@ CLI to report work done in the current week from registered local git repositori
 Reports include only commits authored by your global git identity email from:
 `git config --global user.email`.
 
+## Install
+
+`workdone` ships as native binaries for macOS Apple Silicon and Windows x64.
+
+macOS Apple Silicon:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/codeunity/workdone/main/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/codeunity/workdone/main/install.ps1 | iex
+```
+
+By default, the installers fetch the latest stable GitHub Release, verify its SHA256 checksum, install into a user-scoped directory, and update your user PATH.
+
+To install a specific release instead, pass `--version` on macOS or set `WORKDONE_VERSION` on Windows:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/codeunity/workdone/main/install.sh | sh -s -- --version v0.1.2
+```
+
+```powershell
+$env:WORKDONE_VERSION = "v0.1.2"
+irm https://raw.githubusercontent.com/codeunity/workdone/main/install.ps1 | iex
+```
+
+If your shell does not pick up the new PATH entry immediately, open a new terminal window before running `workdone`.
+
 ## Commands
 
 - `workdone report`
@@ -54,6 +85,8 @@ Artifacts are written to `dist/`:
 
 - `dist/workdone-windows-x64.exe`
 - `dist/workdone-darwin-arm64`
+
+Release assets use the same stable filenames so the installers can fetch them from the latest stable GitHub Release.
 
 Run binaries:
 
