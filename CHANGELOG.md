@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/codeunity/workdone/compare/v0.2.0...v0.3.0) (2026-03-22)
+
+
+### Features
+
+* add sync command for cross-machine reports ([#15](https://github.com/codeunity/workdone/issues/15)) ([3dfbc33](https://github.com/codeunity/workdone/commit/3dfbc3316a893100ce2f659ba41b832029885be6))
+
 ## [0.2.0](https://github.com/codeunity/workdone/compare/v0.1.2...v0.2.0) (2026-03-22)
 
 
