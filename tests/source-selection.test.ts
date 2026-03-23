@@ -6,6 +6,8 @@ import { spawnSync } from "node:child_process";
 import {
   buildSourceSelectionSession,
   formatSelectionEntryLabel,
+  formatSelectionSummary,
+  resolveNewSourceAlias,
   reconcileSourceSelection,
 } from "../src/core/source-selection";
 import type { ConfigFile, Source } from "../src/types";
@@ -77,6 +79,52 @@ describe("source selection session", () => {
     expect(formatSelectionEntryLabel(missingEntry!)).toContain("[missing]");
   });
 
+  it("preserves configured aliases", async () => {
+    const root = await createTempDir();
+    const configuredRepo = path.join(root, "configured");
+    await mkdir(configuredRepo, { recursive: true });
+    runGit(["init"], configuredRepo);
+
+    const config: ConfigFile = {
+      version: 1,
+      sources: [createSource(configuredRepo, "work-api")],
+    };
+
+    const session = await buildSourceSelectionSession(root, 2, config);
+    expect(session.entries).toHaveLength(1);
+    expect(session.entries[0]?.source.name).toBe("work-api");
+    expect(session.entries[0]?.aliasResolved).toBe(false);
+    expect(formatSelectionEntryLabel(session.entries[0]!)).toContain("work-api");
+  });
+
+  it("resolves colliding aliases with the nearest parent prefix", async () => {
+    const root = await createTempDir();
+    const repoA = path.join(root, "client-a", "repo");
+    const repoB = path.join(root, "client-b", "repo");
+    await mkdir(repoA, { recursive: true });
+    await mkdir(repoB, { recursive: true });
+    runGit(["init"], repoA);
+    runGit(["init"], repoB);
+
+    const session = await buildSourceSelectionSession(root, 3, { version: 1, sources: [] });
+    const names = session.entries.map((entry) => entry.source.name);
+
+    expect(names).toEqual(["repo", "client-b-repo"]);
+    expect(session.entries[1]?.aliasResolved).toBe(true);
+    expect(formatSelectionEntryLabel(session.entries[1]!)).toContain("resolved from repo");
+  });
+
+  it("falls back to numeric suffixes when needed", () => {
+    const usedAliases = new Set(["repo", "client-repo"]);
+    const root = "C:\\workspace";
+    const repoPath = path.join(root, "client", "repo");
+
+    const resolved = resolveNewSourceAlias(root, repoPath, usedAliases);
+
+    expect(resolved.name).toBe("client-repo-1");
+    expect(resolved.aliasResolved).toBe(true);
+  });
+
   it("reconciles scoped save without touching unrelated sources", async () => {
     const workspace = await createTempDir();
     const root = path.join(workspace, "selected-root");
@@ -111,5 +159,10 @@ describe("source selection session", () => {
     expect(result.removedCount).toBe(1);
     expect(result.keptCount).toBe(1);
     expect(result.config.sources.map((source) => source.path)).toEqual([outsideRepo, keptRepo, newRepo]);
+
+    const summary = formatSelectionSummary(result, session, [keptRepo, newRepo]);
+    expect(summary[0]).toContain("added 1, removed 1, kept 1");
+    expect(summary.some((line) => line.includes(`kept-repo -> ${keptRepo}`))).toBe(true);
+    expect(summary.some((line) => line.includes(`new-repo -> ${newRepo}`))).toBe(true);
   });
 });

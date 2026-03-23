@@ -11,6 +11,7 @@ import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
 import {
   buildSourceSelectionSession,
   formatSelectionEntryLabel,
+  formatSelectionSummary,
   reconcileSourceSelection,
 } from "./core/source-selection";
 import { validateSource, validateSources } from "./core/validate";
@@ -191,9 +192,11 @@ BEHAVIOR
   - Shows relevant configured and discovered repositories in a path-ordered checklist
   - Space toggles, Enter confirms, q/Esc/Ctrl+C cancels
   - Displays compact validation status for each item
+  - Preserves configured aliases and resolves new alias collisions deterministically
 
 RESULT
   - On confirm, checked repositories are kept/added and unchecked relevant repositories are removed
+  - Save summary shows the aliases that will be persisted
   - On cancel, no changes are written
 
 EXAMPLES
@@ -629,9 +632,9 @@ async function handleSources(args: string[]): Promise<void> {
     const result = reconcileSourceSelection(config, session, selection.selectedValues);
     await saveConfig(result.config);
 
-    console.log(
-      `Updated sources: added ${result.addedCount}, removed ${result.removedCount}, kept ${result.keptCount}.`,
-    );
+    for (const line of formatSelectionSummary(result, session, selection.selectedValues)) {
+      console.log(line);
+    }
     console.log(
       `Found ${session.discoveredCount} repos, showing ${session.entries.length} relevant entries, skipped ${session.skippedCount}.`,
     );

@@ -169,7 +169,6 @@ export function createNodeSelectionIo(
   let pendingResolve: ((key: SelectionKey) => void) | null = null;
   let renderedLineCount = 0;
   const wasRaw = "isRaw" in stdin ? Boolean(stdin.isRaw) : false;
-  const wasPaused = stdin.isPaused();
 
   const onKeypress = (input: string, key: Key): void => {
     const mapped = mapKey(input, key);
@@ -221,11 +220,7 @@ export function createNodeSelectionIo(
       stdin.off("keypress", onKeypress);
       pendingResolve = null;
       stdin.setRawMode?.(wasRaw);
-      if (wasPaused) {
-        stdin.pause();
-      } else {
-        stdin.resume();
-      }
+      stdin.pause();
     },
   };
 }

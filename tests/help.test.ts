@@ -30,6 +30,7 @@ describe("help output", () => {
     expect(output).toContain("workdone sources select <folder> [options]");
     expect(output).toContain("--max-depth <n>");
     expect(output).toContain("interactive terminal");
+    expect(output).toContain("resolves new alias collisions deterministically");
   });
 
   it("shows source option in report help", () => {
