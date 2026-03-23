@@ -51,9 +51,18 @@ If your shell does not pick up the new PATH entry immediately, open a new termin
 - `workdone sources add <path> [--name <alias>]`
 - `workdone sources remove <path-or-name>`
 - `workdone sources validate`
-- `workdone sources discover <folder> [--max-depth <n>] [--dry-run]`
+- `workdone sources select <folder> [--max-depth <n>]`
 
 Weeks start on Monday in local time.
+
+`sources select` is an interactive TTY-only checklist for managing sources under a root folder. It:
+
+- merges currently configured sources under that root with newly discovered repositories
+- reflects the current checked state when rerun
+- shows compact validation status for each entry
+- preserves configured aliases
+- resolves new alias collisions deterministically before save
+- applies scoped add/remove/keep changes only to the relevant source set
 
 To include work pushed from another machine, run:
 

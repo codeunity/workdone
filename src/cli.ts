@@ -3,11 +3,17 @@
 import path from "node:path";
 import { stat } from "node:fs/promises";
 import { loadConfig, saveConfig } from "./core/config";
-import { discoverGitRepos } from "./core/discover";
 import { getGlobalGitUserEmail, syncGitSource } from "./core/git";
 import { printReport, printValidationResults } from "./core/output";
 import { getConfigPath, normalizeInputPath } from "./core/paths";
 import { buildWeeklyReport } from "./core/report";
+import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
+import {
+  buildSourceSelectionSession,
+  formatSelectionEntryLabel,
+  formatSelectionSummary,
+  reconcileSourceSelection,
+} from "./core/source-selection";
 import { validateSource, validateSources } from "./core/validate";
 import type { Source } from "./types";
 
@@ -27,7 +33,7 @@ COMMANDS
   sources add <path>     Register a local git repository source (use --name for alias)
   sources remove <arg>   Remove a registered source by alias or path
   sources validate       Validate all registered sources
-  sources discover <folder>  Find and add git repos in a folder
+  sources select <folder>  Interactively choose git repos in a folder
   help [command]         Show help for a command
 
 GLOBAL OPTIONS
@@ -35,7 +41,7 @@ GLOBAL OPTIONS
   -v, --version          Show version
 
 GET STARTED
-  workdone sources discover ~/code
+  workdone sources select ~/code
   workdone sync
   workdone sources validate
   workdone report --view timeline
@@ -156,47 +162,46 @@ COMMANDS
   add <path>             Add a local git repository source
   remove <path-or-name>  Remove a source by path or alias
   validate               Validate all registered sources
-  discover <folder>      Find and add git repos in a folder
+  select <folder>        Interactively choose git repos in a folder
 
 EXAMPLES
   workdone sources list
   workdone sources add ~/code/project-a --name api
   workdone sources remove api
   workdone sources validate
-  workdone sources discover ~/code
-  workdone sources discover ~/code --max-depth 2 --dry-run`);
+  workdone sources select ~/code
+  workdone sources select ~/code --max-depth 2`);
 }
 
-function printSourcesDiscoverHelp(): void {
-  console.log(`Find and add local git repositories under a folder.
+function printSourcesSelectHelp(): void {
+  console.log(`Interactively choose local git repositories under a folder.
 
 USAGE
-  workdone sources discover <folder> [options]
+  workdone sources select <folder> [options]
 
 ARGUMENTS
   <folder>               Root folder to scan recursively
 
 OPTIONS
   --max-depth <n>        Maximum scan depth (default: 3)
-  --dry-run              Show what would be added without writing config
   -h, --help             Show help
 
 BEHAVIOR
   - Scans recursively from <folder> up to max depth
-  - Adds only valid local git repositories
-  - Default alias is the repo folder name
-  - Skips already registered paths
-  - Skips alias conflicts (case-insensitive) and reports them
+  - Requires an interactive terminal (TTY)
+  - Shows relevant configured and discovered repositories in a path-ordered checklist
+  - Space toggles, Enter confirms, q/Esc/Ctrl+C cancels
+  - Displays compact validation status for each item
+  - Preserves configured aliases and resolves new alias collisions deterministically
 
 RESULT
-  - Prints per-repo status: ADD or SKIP with reason
-  - Prints summary: "Found <n> repos, added <a>, skipped <s>"
-  - With --dry-run, no changes are written
+  - On confirm, checked repositories are kept/added and unchecked relevant repositories are removed
+  - Save summary shows the aliases that will be persisted
+  - On cancel, no changes are written
 
 EXAMPLES
-  workdone sources discover ~/code
-  workdone sources discover ~/code --max-depth 2
-  workdone sources discover ~/code --dry-run`);
+  workdone sources select ~/code
+  workdone sources select ~/code --max-depth 2`);
 }
 
 function printSourcesListHelp(): void {
@@ -338,40 +343,6 @@ function printSourcesTable(sources: Source[]): void {
   });
 }
 
-interface DiscoverRow {
-  action: "ADD" | "SKIP";
-  name: string;
-  type: string;
-  path: string;
-  reason: string;
-}
-
-function printDiscoverTable(rows: DiscoverRow[]): void {
-  const actionHeader = "Action";
-  const nameHeader = "Name";
-  const typeHeader = "Type";
-  const pathHeader = "Path";
-  const reasonHeader = "Reason";
-
-  const actionWidth = Math.max(actionHeader.length, ...rows.map((row) => row.action.length));
-  const nameWidth = Math.max(nameHeader.length, ...rows.map((row) => row.name.length));
-  const typeWidth = Math.max(typeHeader.length, ...rows.map((row) => row.type.length));
-  const pathWidth = Math.max(pathHeader.length, ...rows.map((row) => row.path.length));
-
-  console.log(
-    `${padRight(actionHeader, actionWidth)}  ${padRight(nameHeader, nameWidth)}  ${padRight(typeHeader, typeWidth)}  ${padRight(pathHeader, pathWidth)}  ${reasonHeader}`,
-  );
-  console.log(
-    `${"-".repeat(actionWidth)}  ${"-".repeat(nameWidth)}  ${"-".repeat(typeWidth)}  ${"-".repeat(pathWidth)}  ${"-".repeat(reasonHeader.length)}`,
-  );
-
-  for (const row of rows) {
-    console.log(
-      `${padRight(row.action, actionWidth)}  ${padRight(row.name, nameWidth)}  ${padRight(row.type, typeWidth)}  ${padRight(row.path, pathWidth)}  ${row.reason}`,
-    );
-  }
-}
-
 function parseSourcesAddOptions(args: string[]): { pathArg: string; name?: string } {
   const pathArg = args[1];
   if (!pathArg) {
@@ -396,21 +367,20 @@ function parseSourcesAddOptions(args: string[]): { pathArg: string; name?: strin
   return { pathArg, name };
 }
 
-function parseSourcesDiscoverOptions(args: string[]): { folder: string; maxDepth: number; dryRun: boolean } {
+function parseSourcesSelectOptions(args: string[]): { folder: string; maxDepth: number } {
   const folder = args[1];
   if (!folder || folder.startsWith("-")) {
-    fail("missing required argument '<folder>'\nTry: workdone sources discover --help");
+    fail("missing required argument '<folder>'\nTry: workdone sources select --help");
   }
 
   let maxDepth = 3;
-  let dryRun = false;
 
   for (let i = 2; i < args.length; i += 1) {
     const token = args[i];
     if (token === "--max-depth") {
       const value = args[i + 1];
       if (!value) {
-        fail("missing value for '--max-depth'\nTry: workdone sources discover --help");
+        fail("missing value for '--max-depth'\nTry: workdone sources select --help");
       }
       if (!/^\d+$/.test(value)) {
         fail("invalid value for '--max-depth': must be a non-negative integer");
@@ -420,14 +390,10 @@ function parseSourcesDiscoverOptions(args: string[]): { folder: string; maxDepth
       i += 1;
       continue;
     }
-    if (token === "--dry-run") {
-      dryRun = true;
-      continue;
-    }
-    fail(`unknown option '${token}'\nTry: workdone sources discover --help`);
+    fail(`unknown option '${token}'\nTry: workdone sources select --help`);
   }
 
-  return { folder, maxDepth, dryRun };
+  return { folder, maxDepth };
 }
 
 function parseReportOptions(args: string[]): {
@@ -620,13 +586,13 @@ async function handleSources(args: string[]): Promise<void> {
     return;
   }
 
-  if (sub === "discover") {
+  if (sub === "select") {
     if (args[1] === "-h" || args[1] === "--help") {
-      printSourcesDiscoverHelp();
+      printSourcesSelectHelp();
       return;
     }
 
-    const options = parseSourcesDiscoverOptions(args);
+    const options = parseSourcesSelectOptions(args);
     const rootFolder = normalizeInputPath(options.folder);
     const rootStat = await stat(rootFolder).catch(() => null);
     if (!rootStat) {
@@ -636,82 +602,42 @@ async function handleSources(args: string[]): Promise<void> {
       fail(`not a directory: ${rootFolder}`);
     }
 
-    console.log(
-      `Scanning: ${rootFolder} (max depth: ${options.maxDepth}${options.dryRun ? ", dry run" : ""})\n`,
-    );
-
-    const discoveredRepos = await discoverGitRepos(rootFolder, options.maxDepth);
-    if (discoveredRepos.length === 0) {
-      console.log("No git repositories found.");
-      console.log("Found 0 repos, added 0, skipped 0");
-      if (options.dryRun) {
-        console.log("Dry run: no changes written");
-      }
-      return;
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      fail("sources select requires an interactive terminal (TTY)");
     }
 
     const config = await loadConfig();
-    const existingPaths = new Set(config.sources.map((source) => source.path));
-    const existingAliases = new Set(config.sources.map((source) => normalizeAlias(source.name)));
-    const batchAliases = new Set<string>();
-
-    const toAdd: Source[] = [];
-    const rows: DiscoverRow[] = [];
-    let skipped = 0;
-
-    for (const repoPath of discoveredRepos) {
-      const normalizedRepoPath = normalizeInputPath(repoPath);
-      if (existingPaths.has(normalizedRepoPath)) {
-        rows.push({
-          action: "SKIP",
-          name: "",
-          type: "",
-          path: normalizedRepoPath,
-          reason: "path already registered",
-        });
-        skipped += 1;
-        continue;
-      }
-
-      const alias = path.basename(normalizedRepoPath);
-      const aliasKey = normalizeAlias(alias);
-      if (existingAliases.has(aliasKey) || batchAliases.has(aliasKey)) {
-        rows.push({
-          action: "SKIP",
-          name: "",
-          type: "",
-          path: normalizedRepoPath,
-          reason: `alias conflict: ${alias}`,
-        });
-        skipped += 1;
-        continue;
-      }
-
-      const source: Source = { type: "git-local", path: normalizedRepoPath, name: alias };
-      toAdd.push(source);
-      batchAliases.add(aliasKey);
-      rows.push({
-        action: "ADD",
-        name: alias,
-        type: "git-local",
-        path: normalizedRepoPath,
-        reason: "",
-      });
+    const session = await buildSourceSelectionSession(rootFolder, options.maxDepth, config);
+    if (session.entries.length === 0) {
+      console.log("No relevant sources found.");
+      return;
     }
 
-    if (rows.length > 0) {
-      printDiscoverTable(rows);
+    const selection = await runSelectionSession(
+      `Edit sources for ${rootFolder}`,
+      session.entries.map((entry) => ({
+        value: entry.source.path,
+        label: formatSelectionEntryLabel(entry),
+        checked: entry.checked,
+      })),
+      createNodeSelectionIo(),
+      `Found ${session.discoveredCount} repos; showing ${session.entries.length} relevant entries; skipped ${session.skippedCount}.`,
+    );
+
+    if (!selection.confirmed) {
+      console.log("Cancelled: no changes written");
+      return;
     }
 
-    if (!options.dryRun && toAdd.length > 0) {
-      config.sources.push(...toAdd);
-      await saveConfig(config);
-    }
+    const result = reconcileSourceSelection(config, session, selection.selectedValues);
+    await saveConfig(result.config);
 
-    console.log(`\nFound ${discoveredRepos.length} repos, added ${toAdd.length}, skipped ${skipped}`);
-    if (options.dryRun) {
-      console.log("Dry run: no changes written");
+    for (const line of formatSelectionSummary(result, session, selection.selectedValues)) {
+      console.log(line);
     }
+    console.log(
+      `Found ${session.discoveredCount} repos, showing ${session.entries.length} relevant entries, skipped ${session.skippedCount}.`,
+    );
     return;
   }
 
@@ -844,8 +770,8 @@ function printHelpForPath(pathParts: string[]): void {
     case "sources validate":
       printSourcesValidateHelp();
       return;
-    case "sources discover":
-      printSourcesDiscoverHelp();
+    case "sources select":
+      printSourcesSelectHelp();
       return;
     default:
       fail(`unknown help topic '${joined}'\nTry: workdone --help`);
