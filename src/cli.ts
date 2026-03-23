@@ -3,12 +3,16 @@
 import path from "node:path";
 import { stat } from "node:fs/promises";
 import { loadConfig, saveConfig } from "./core/config";
-import { discoverGitRepos } from "./core/discover";
 import { getGlobalGitUserEmail, syncGitSource } from "./core/git";
 import { printReport, printValidationResults } from "./core/output";
 import { getConfigPath, normalizeInputPath } from "./core/paths";
 import { buildWeeklyReport } from "./core/report";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
+import {
+  buildSourceSelectionSession,
+  formatSelectionEntryLabel,
+  reconcileSourceSelection,
+} from "./core/source-selection";
 import { validateSource, validateSources } from "./core/validate";
 import type { Source } from "./types";
 
@@ -184,12 +188,12 @@ OPTIONS
 BEHAVIOR
   - Scans recursively from <folder> up to max depth
   - Requires an interactive terminal (TTY)
-  - Shows addable repositories in a path-ordered checklist
+  - Shows relevant configured and discovered repositories in a path-ordered checklist
   - Space toggles, Enter confirms, q/Esc/Ctrl+C cancels
-  - Keeps the existing source alias convention for new additions
+  - Displays compact validation status for each item
 
 RESULT
-  - On confirm, checked repositories are added
+  - On confirm, checked repositories are kept/added and unchecked relevant repositories are removed
   - On cancel, no changes are written
 
 EXAMPLES
@@ -599,54 +603,22 @@ async function handleSources(args: string[]): Promise<void> {
       fail("sources select requires an interactive terminal (TTY)");
     }
 
-    const discoveredRepos = await discoverGitRepos(rootFolder, options.maxDepth);
-    if (discoveredRepos.length === 0) {
-      console.log("No git repositories found.");
-      return;
-    }
-
     const config = await loadConfig();
-    const existingPaths = new Set(config.sources.map((source) => source.path));
-    const existingAliases = new Set(config.sources.map((source) => normalizeAlias(source.name)));
-    const batchAliases = new Set<string>();
-
-    const selectableSources: Source[] = [];
-    let skipped = 0;
-
-    for (const repoPath of discoveredRepos) {
-      const normalizedRepoPath = normalizeInputPath(repoPath);
-      if (existingPaths.has(normalizedRepoPath)) {
-        skipped += 1;
-        continue;
-      }
-
-      const alias = path.basename(normalizedRepoPath);
-      const aliasKey = normalizeAlias(alias);
-      if (existingAliases.has(aliasKey) || batchAliases.has(aliasKey)) {
-        skipped += 1;
-        continue;
-      }
-
-      const source: Source = { type: "git-local", path: normalizedRepoPath, name: alias };
-      selectableSources.push(source);
-      batchAliases.add(aliasKey);
-    }
-
-    if (selectableSources.length === 0) {
-      console.log("No selectable git repositories found.");
-      console.log(`Found ${discoveredRepos.length} repos, selectable 0, skipped ${skipped}`);
+    const session = await buildSourceSelectionSession(rootFolder, options.maxDepth, config);
+    if (session.entries.length === 0) {
+      console.log("No relevant sources found.");
       return;
     }
 
     const selection = await runSelectionSession(
-      `Select repositories to add from ${rootFolder}`,
-      selectableSources.map((source) => ({
-        value: source.path,
-        label: `${source.name} (${source.path})`,
-        checked: true,
+      `Edit sources for ${rootFolder}`,
+      session.entries.map((entry) => ({
+        value: entry.source.path,
+        label: formatSelectionEntryLabel(entry),
+        checked: entry.checked,
       })),
       createNodeSelectionIo(),
-      `Found ${discoveredRepos.length} repos; selectable ${selectableSources.length}; skipped ${skipped}.`,
+      `Found ${session.discoveredCount} repos; showing ${session.entries.length} relevant entries; skipped ${session.skippedCount}.`,
     );
 
     if (!selection.confirmed) {
@@ -654,18 +626,15 @@ async function handleSources(args: string[]): Promise<void> {
       return;
     }
 
-    const selectedPaths = new Set(selection.selectedValues);
-    const toAdd = selectableSources.filter((source) => selectedPaths.has(source.path));
-    if (toAdd.length === 0) {
-      console.log("No sources selected. No changes written.");
-      return;
-    }
+    const result = reconcileSourceSelection(config, session, selection.selectedValues);
+    await saveConfig(result.config);
 
-    config.sources.push(...toAdd);
-    await saveConfig(config);
-
-    console.log(`Added ${toAdd.length} source${toAdd.length === 1 ? "" : "s"}.`);
-    console.log(`Found ${discoveredRepos.length} repos, selectable ${selectableSources.length}, skipped ${skipped}`);
+    console.log(
+      `Updated sources: added ${result.addedCount}, removed ${result.removedCount}, kept ${result.keptCount}.`,
+    );
+    console.log(
+      `Found ${session.discoveredCount} repos, showing ${session.entries.length} relevant entries, skipped ${session.skippedCount}.`,
+    );
     return;
   }
 
