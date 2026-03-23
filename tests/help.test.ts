@@ -25,11 +25,11 @@ describe("help output", () => {
     expect(output).toContain("workdone config [options]");
   });
 
-  it("supports sources discover help topic", () => {
-    const output = runCli(["help", "sources", "discover"]);
-    expect(output).toContain("workdone sources discover <folder> [options]");
+  it("supports sources select help topic", () => {
+    const output = runCli(["help", "sources", "select"]);
+    expect(output).toContain("workdone sources select <folder> [options]");
     expect(output).toContain("--max-depth <n>");
-    expect(output).toContain("--dry-run");
+    expect(output).toContain("interactive terminal");
   });
 
   it("shows source option in report help", () => {

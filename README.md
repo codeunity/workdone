@@ -51,7 +51,7 @@ If your shell does not pick up the new PATH entry immediately, open a new termin
 - `workdone sources add <path> [--name <alias>]`
 - `workdone sources remove <path-or-name>`
 - `workdone sources validate`
-- `workdone sources discover <folder> [--max-depth <n>] [--dry-run]`
+- `workdone sources select <folder> [--max-depth <n>]`
 
 Weeks start on Monday in local time.
 
