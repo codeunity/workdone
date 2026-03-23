@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/codeunity/workdone/compare/v0.3.0...v0.4.0) (2026-03-23)
+
+
+### Features
+
+* add interactive source selection ([#21](https://github.com/codeunity/workdone/issues/21)) ([f5c97a9](https://github.com/codeunity/workdone/commit/f5c97a9621229f60fb3d7bba02b103b2bf630003))
+
 ## [0.3.0](https://github.com/codeunity/workdone/compare/v0.2.0...v0.3.0) (2026-03-22)
 
 
