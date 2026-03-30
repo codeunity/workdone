@@ -2,7 +2,9 @@ import { describe, expect, it } from "bun:test";
 import {
   getCurrentWeekRange,
   isoWeeksInYear,
+  parseDateOption,
   parseWeekOption,
+  resolveDateRange,
   resolveWeekRange,
   toDateKey,
   toDayLabel,
@@ -164,3 +166,63 @@ describe("resolveWeekRange", () => {
     ).toThrow(/53.*2025|2025.*53/i);
   });
 })
+
+describe("parseDateOption", () => {
+  it("parses a valid YYYY-MM-DD date", () => {
+    const d = parseDateOption("2026-03-20");
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(2); // March = 2 (0-indexed)
+    expect(d.getDate()).toBe(20);
+  });
+
+  it("throws on wrong format (wrong separator)", () => {
+    expect(() => parseDateOption("20-3-2026")).toThrow(/YYYY-MM-DD/i);
+  });
+
+  it("throws on wrong format (missing leading zeros)", () => {
+    expect(() => parseDateOption("2026-3-2")).toThrow(/YYYY-MM-DD/i);
+  });
+
+  it("throws on an impossible date (Feb 30)", () => {
+    expect(() => parseDateOption("2026-02-30")).toThrow();
+  });
+
+  it("throws on an impossible date (month 13)", () => {
+    expect(() => parseDateOption("2026-13-01")).toThrow();
+  });
+
+  it("includes the flag name in the error message", () => {
+    expect(() => parseDateOption("bad", "--until")).toThrow(/--until/);
+  });
+});
+
+describe("resolveDateRange", () => {
+  const now = new Date("2026-03-30T11:00:00");
+
+  it("since alone sets start to 00:00:00 and end to now", () => {
+    const range = resolveDateRange("2026-03-20", undefined, now);
+    expect(toDateKey(range.start)).toBe("2026-03-20");
+    expect(range.start.getHours()).toBe(0);
+    expect(range.start.getMinutes()).toBe(0);
+    expect(range.start.getSeconds()).toBe(0);
+    expect(range.end).toBe(now);
+  });
+
+  it("since + until sets start to 00:00:00 and end to 23:59:59", () => {
+    const range = resolveDateRange("2026-03-20", "2026-03-30", now);
+    expect(toDateKey(range.start)).toBe("2026-03-20");
+    expect(range.start.getHours()).toBe(0);
+    expect(toDateKey(range.end)).toBe("2026-03-30");
+    expect(range.end.getHours()).toBe(23);
+    expect(range.end.getMinutes()).toBe(59);
+    expect(range.end.getSeconds()).toBe(59);
+  });
+
+  it("throws on invalid since date", () => {
+    expect(() => resolveDateRange("20-3-2026", undefined, now)).toThrow();
+  });
+
+  it("throws on invalid until date", () => {
+    expect(() => resolveDateRange("2026-03-20", "30-3-2026", now)).toThrow();
+  });
+});

@@ -156,6 +156,45 @@ export function resolveWeekRange(option: WeekOption, now: Date = new Date()): Da
   return { start, end };
 }
 
+/**
+ * Parses a YYYY-MM-DD date string strictly. Throws on wrong format or impossible dates.
+ */
+export function parseDateOption(value: string, flag: string = "--since"): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(
+      `Invalid value for '${flag}': "${value}". Expected format: YYYY-MM-DD (e.g., 2026-03-20).`,
+    );
+  }
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  // Detect impossible dates (e.g. Feb 30) by checking if the components round-trip
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    throw new Error(`Invalid date for '${flag}': "${value}" is not a real calendar date.`);
+  }
+  return date;
+}
+
+/**
+ * Builds a DateRange from --since and optional --until strings.
+ * - since sets 00:00:00 local time on that date
+ * - until sets 23:59:59.999 local time on that date
+ * - omitting until defaults to now
+ */
+export function resolveDateRange(since: string, until?: string, now: Date = new Date()): DateRange {
+  const sinceDate = parseDateOption(since, "--since");
+  sinceDate.setHours(0, 0, 0, 0);
+
+  let untilDate: Date;
+  if (until !== undefined) {
+    untilDate = parseDateOption(until, "--until");
+    untilDate.setHours(23, 59, 59, 999);
+  } else {
+    untilDate = now;
+  }
+
+  return { start: sinceDate, end: untilDate };
+}
+
 export function toDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");

@@ -7,7 +7,7 @@ import { getGlobalGitUserEmail, syncGitSource } from "./core/git";
 import { printReport, printValidationResults } from "./core/output";
 import { getConfigPath, normalizeInputPath } from "./core/paths";
 import { buildWeeklyReport } from "./core/report";
-import { parseWeekOption, resolveWeekRange } from "./core/time";
+import { parseWeekOption, resolveWeekRange, resolveDateRange } from "./core/time";
 import type { DateRange } from "./core/time";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
 import {
@@ -404,12 +404,16 @@ function parseReportOptions(args: string[]): {
   view: "timeline" | "by-source";
   format: "text" | "markdown";
   week?: string;
+  since?: string;
+  until?: string;
 } {
   let sourceSelector: string | undefined;
   let files = false;
   let view: "timeline" | "by-source" = "timeline";
   let format: "text" | "markdown" = "text";
   let week: string | undefined;
+  let since: string | undefined;
+  let until: string | undefined;
   for (let i = 0; i < args.length; i += 1) {
     const token = args[i];
     if (token === "-h" || token === "--help") {
@@ -470,9 +474,27 @@ function parseReportOptions(args: string[]): {
       }
       continue;
     }
+    if (token === "--since") {
+      const value = args[i + 1];
+      if (!value) {
+        fail("missing value for '--since'\nTry: workdone report --help");
+      }
+      since = value;
+      i += 1;
+      continue;
+    }
+    if (token === "--until") {
+      const value = args[i + 1];
+      if (!value) {
+        fail("missing value for '--until'\nTry: workdone report --help");
+      }
+      until = value;
+      i += 1;
+      continue;
+    }
     fail(`unknown option '${token}'\nTry: workdone report --help`);
   }
-  return { sourceSelector, files, view, format, week };
+  return { sourceSelector, files, view, format, week, since, until };
 }
 
 function parseSyncOptions(args: string[]): { sourceSelector?: string } {
@@ -671,11 +693,25 @@ async function handleReport(args: string[]): Promise<void> {
 
   let dateRange: DateRange | undefined;
   if (options.week !== undefined) {
+    if (options.since !== undefined) {
+      fail("--week and --since cannot be used together.\nTry: workdone report --help");
+    }
+    if (options.until !== undefined) {
+      fail("--week and --until cannot be used together.\nTry: workdone report --help");
+    }
     try {
       dateRange = resolveWeekRange(parseWeekOption(options.week));
     } catch (err) {
       fail(String(err instanceof Error ? err.message : err) + "\nTry: workdone report --help");
     }
+  } else if (options.since !== undefined) {
+    try {
+      dateRange = resolveDateRange(options.since, options.until);
+    } catch (err) {
+      fail(String(err instanceof Error ? err.message : err) + "\nTry: workdone report --help");
+    }
+  } else if (options.until !== undefined) {
+    fail("--until requires --since to also be specified.\nTry: workdone report --help");
   }
 
   const config = await loadConfig();
