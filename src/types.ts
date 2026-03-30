@@ -44,7 +44,7 @@ export interface DayGroup {
 }
 
 export interface WeeklyReport {
-  weekStart: Date;
+  rangeStart: Date;
   generatedAt: Date;
   days: DayGroup[];
 }

@@ -1,15 +1,17 @@
 import { getWeeklyCommits } from "./git";
 import { getCurrentWeekRange, toDateKey, toDayLabel } from "./time";
+import type { DateRange } from "./time";
 import type { CommitEntry, DayGroup, Source, WeeklyReport } from "../types";
 
 export async function buildWeeklyReport(
   sources: Source[],
   authorEmail: string,
   now: Date = new Date(),
+  range?: DateRange,
 ): Promise<WeeklyReport> {
-  const range = getCurrentWeekRange(now);
-  const sinceIso = range.start.toISOString();
-  const untilIso = range.end.toISOString();
+  const resolvedRange = range ?? getCurrentWeekRange(now);
+  const sinceIso = resolvedRange.start.toISOString();
+  const untilIso = resolvedRange.end.toISOString();
 
   const allCommits = filterCommitsByAuthorEmail(
     await Promise.all(sources.map((source) => getWeeklyCommits(source.path, source.name, sinceIso, untilIso)))
@@ -40,7 +42,7 @@ export async function buildWeeklyReport(
   }
 
   return {
-    weekStart: range.start,
+    rangeStart: resolvedRange.start,
     generatedAt: now,
     days,
   };
