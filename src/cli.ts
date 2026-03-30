@@ -10,6 +10,7 @@ import { buildWeeklyReport } from "./core/report";
 import { parseWeekOption, resolveWeekRange, resolveDateRange, resolveShortcutRange } from "./core/time";
 import type { DateRange, Shortcut } from "./core/time";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
+import { addUser, listUsers, removeUser } from "./core/users";
 import {
   buildSourceSelectionSession,
   formatSelectionEntryLabel,
@@ -36,6 +37,9 @@ COMMANDS
   sources remove <arg>   Remove a registered source by alias or path
   sources validate       Validate all registered sources
   sources select <folder>  Interactively choose git repos in a folder
+  users list             List configured author emails (falls back to global git email if empty)
+  users add <email>      Add an author email to include in reports
+  users remove <email>   Remove a configured author email
   help [command]         Show help for a command
 
 GLOBAL OPTIONS
@@ -70,7 +74,8 @@ DESCRIPTION
   Generates a report for the specified date range (default: the current local week,
   Monday 00:00 (local time) through now).
 
-  Includes only commits authored by your global git email:
+  Includes only commits authored by the configured users (workdone users list).
+  If no users are configured, falls back to your global git email:
   git config --global user.email
 
   Scans commits reachable from local branches and remote-tracking
@@ -132,7 +137,7 @@ EXAMPLES
   workdone report --source api --view by-source --format markdown
 
 REQUIREMENTS
-  - git global user.email must be set
+  - git global user.email must be set (or users configured via workdone users add)
   - selected/registered source must be a valid local git repository`);
 }
 
@@ -197,6 +202,32 @@ EXAMPLES
   workdone sources validate
   workdone sources select ~/code
   workdone sources select ~/code --max-depth 2`);
+}
+
+function printUsersHelp(): void {
+  console.log(`Manage the list of author emails included in reports.
+
+USAGE
+  workdone users <command>
+
+COMMANDS
+  list             List configured author emails
+  add <email>      Add an author email
+  remove <email>   Remove an author email
+
+DESCRIPTION
+  When one or more emails are configured, workdone report includes commits
+  from all of them (OR logic). When the list is empty, workdone falls back
+  to your global git user.email as before.
+
+  When multiple users are configured, each commit line in the report is
+  annotated with the author's email.
+
+EXAMPLES
+  workdone users list
+  workdone users add alice@example.com
+  workdone users add bob@example.com
+  workdone users remove alice@example.com`);
 }
 
 function printSourcesSelectHelp(): void {
@@ -325,6 +356,9 @@ function suggestCommand(unknown: string): string | null {
   }
   if (unknown === "source") {
     return "sources";
+  }
+  if (unknown === "user") {
+    return "users";
   }
   return null;
 }
@@ -741,6 +775,62 @@ async function handleSources(args: string[]): Promise<void> {
   fail(`unknown subcommand 'sources ${sub}'\nTry: workdone sources --help`);
 }
 
+async function handleUsers(args: string[]): Promise<void> {
+  const sub = args[0];
+
+  if (!sub || sub === "-h" || sub === "--help") {
+    printUsersHelp();
+    return;
+  }
+
+  if (sub === "list") {
+    const config = await loadConfig();
+    const users = listUsers(config);
+    if (users.length === 0) {
+      console.log("No users configured.");
+      console.log("Falling back to global git user.email for reports.");
+      console.log("Add a user with: workdone users add <email>");
+    } else {
+      for (const email of users) {
+        console.log(email);
+      }
+    }
+    return;
+  }
+
+  if (sub === "add") {
+    const email = args[1];
+    if (!email) {
+      fail("missing argument: workdone users add <email>");
+    }
+    const config = await loadConfig();
+    const updated = addUser(config, email);
+    if (updated === config) {
+      return;
+    }
+    await saveConfig(updated);
+    console.log(`Added user: ${email.trim()}`);
+    return;
+  }
+
+  if (sub === "remove") {
+    const email = args[1];
+    if (!email) {
+      fail("missing argument: workdone users remove <email>");
+    }
+    const config = await loadConfig();
+    const updated = removeUser(config, email);
+    if (updated === config) {
+      return;
+    }
+    await saveConfig(updated);
+    console.log(`Removed user: ${email.trim()}`);
+    return;
+  }
+
+  fail(`unknown subcommand 'users ${sub}'\nTry: workdone users --help`);
+}
+
 async function handleReport(args: string[]): Promise<void> {
   const options = parseReportOptions(args);
 
@@ -780,9 +870,12 @@ async function handleReport(args: string[]): Promise<void> {
     fail("--until requires --since to also be specified.\nTry: workdone report --help");
   }
 
-  const currentUserEmail = (await getGlobalGitUserEmail()).trim().toLowerCase();
-
   const config = await loadConfig();
+  const configuredUsers = listUsers(config);
+  const effectiveUsers = configuredUsers.length > 0
+    ? configuredUsers
+    : [(await getGlobalGitUserEmail()).trim().toLowerCase()];
+
   if (config.sources.length === 0) {
     console.log("No sources registered.");
     console.log("Get started:");
@@ -800,8 +893,8 @@ async function handleReport(args: string[]): Promise<void> {
     if (!validation.valid) {
       fail(`selected source is invalid: ${validation.reason}\nTry: workdone sources validate`);
     }
-    const report = await buildWeeklyReport([selectedSource], currentUserEmail, new Date(), dateRange);
-    printReport(report, { includeFiles: options.files, view: options.view, format: options.format });
+    const report = await buildWeeklyReport([selectedSource], effectiveUsers, new Date(), dateRange);
+    printReport(report, { includeFiles: options.files, view: options.view, format: options.format, showAuthor: effectiveUsers.length > 1 });
     return;
   }
 
@@ -820,8 +913,8 @@ async function handleReport(args: string[]): Promise<void> {
     fail("no valid sources available\nTry: workdone sources validate");
   }
 
-  const report = await buildWeeklyReport(validSources, currentUserEmail, new Date(), dateRange);
-  printReport(report, { includeFiles: options.files, view: options.view, format: options.format });
+  const report = await buildWeeklyReport(validSources, effectiveUsers, new Date(), dateRange);
+  printReport(report, { includeFiles: options.files, view: options.view, format: options.format, showAuthor: effectiveUsers.length > 1 });
 }
 
 async function handleSync(args: string[]): Promise<void> {
@@ -907,6 +1000,9 @@ function printHelpForPath(pathParts: string[]): void {
     case "sources select":
       printSourcesSelectHelp();
       return;
+    case "users":
+      printUsersHelp();
+      return;
     default:
       fail(`unknown help topic '${joined}'\nTry: workdone --help`);
   }
@@ -952,6 +1048,11 @@ async function main(): Promise<void> {
 
   if (command === "sources") {
     await handleSources(args.slice(1));
+    return;
+  }
+
+  if (command === "users") {
+    await handleUsers(args.slice(1));
     return;
   }
 

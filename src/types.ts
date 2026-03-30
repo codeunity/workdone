@@ -9,6 +9,7 @@ export interface Source {
 export interface ConfigFile {
   version: 1;
   sources: Source[];
+  users?: string[];
 }
 
 export type InvalidReason = "missing" | "not_directory" | "not_git_repo" | "not_accessible";
