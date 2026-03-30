@@ -743,8 +743,9 @@ async function handleSources(args: string[]): Promise<void> {
 
 async function handleReport(args: string[]): Promise<void> {
   const options = parseReportOptions(args);
-  const currentUserEmail = (await getGlobalGitUserEmail()).trim().toLowerCase();
 
+  // Resolve and validate the date range before any async I/O so that
+  // invalid flag combinations fail fast regardless of the environment.
   let dateRange: DateRange | undefined;
   if (options.week !== undefined) {
     if (options.since !== undefined) {
@@ -778,6 +779,8 @@ async function handleReport(args: string[]): Promise<void> {
   } else if (options.until !== undefined) {
     fail("--until requires --since to also be specified.\nTry: workdone report --help");
   }
+
+  const currentUserEmail = (await getGlobalGitUserEmail()).trim().toLowerCase();
 
   const config = await loadConfig();
   if (config.sources.length === 0) {
