@@ -4,7 +4,7 @@ import type { WeeklyReport } from "../src/types";
 
 function sampleReport(): WeeklyReport {
   return {
-    weekStart: new Date("2026-03-16T00:00:00"),
+    rangeStart: new Date("2026-03-16T00:00:00"),
     generatedAt: new Date("2026-03-19T15:00:00"),
     days: [
       {

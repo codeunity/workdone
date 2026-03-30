@@ -151,7 +151,7 @@ export function printValidationResults(results: ValidationResult[]): number {
 
 function printReportMarkdown(report: WeeklyReport, options: PrintReportOptions): void {
   console.log("# Workdone Report");
-  console.log(`Week starting: ${toDateKey(report.weekStart)} (Monday, local time)`);
+  console.log(`Week starting: ${toDateKey(report.rangeStart)} (Monday, local time)`);
 
   if (report.days.length === 0) {
     console.log("\nNo work found this week.");
@@ -257,7 +257,7 @@ function printReportMarkdown(report: WeeklyReport, options: PrintReportOptions):
 
 function printReportText(report: WeeklyReport, options: PrintReportOptions): void {
   const view = options.view ?? "timeline";
-  console.log(`Week starting ${report.weekStart.toLocaleDateString()} (Monday, local time)`);
+  console.log(`Week starting ${report.rangeStart.toLocaleDateString()} (Monday, local time)`);
 
   if (report.days.length === 0) {
     console.log("\nNo work found this week.");

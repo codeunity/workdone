@@ -1,11 +1,11 @@
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export interface WeekRange {
+export interface DateRange {
   start: Date;
   end: Date;
 }
 
-export function getCurrentWeekRange(now: Date = new Date()): WeekRange {
+export function getCurrentWeekRange(now: Date = new Date()): DateRange {
   const day = now.getDay();
   const daysSinceMonday = (day + 6) % 7;
   const start = new Date(now);

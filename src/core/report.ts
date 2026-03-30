@@ -40,7 +40,7 @@ export async function buildWeeklyReport(
   }
 
   return {
-    weekStart: range.start,
+    rangeStart: range.start,
     generatedAt: now,
     days,
   };
