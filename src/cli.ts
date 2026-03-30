@@ -7,6 +7,8 @@ import { getGlobalGitUserEmail, syncGitSource } from "./core/git";
 import { printReport, printValidationResults } from "./core/output";
 import { getConfigPath, normalizeInputPath } from "./core/paths";
 import { buildWeeklyReport } from "./core/report";
+import { parseWeekOption, resolveWeekRange } from "./core/time";
+import type { DateRange } from "./core/time";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
 import {
   buildSourceSelectionSession,
@@ -401,11 +403,13 @@ function parseReportOptions(args: string[]): {
   files: boolean;
   view: "timeline" | "by-source";
   format: "text" | "markdown";
+  week?: string;
 } {
   let sourceSelector: string | undefined;
   let files = false;
   let view: "timeline" | "by-source" = "timeline";
   let format: "text" | "markdown" = "text";
+  let week: string | undefined;
   for (let i = 0; i < args.length; i += 1) {
     const token = args[i];
     if (token === "-h" || token === "--help") {
@@ -449,9 +453,26 @@ function parseReportOptions(args: string[]): {
       i += 1;
       continue;
     }
+    // Support both "--week value" and "--week=value" (needed for negative numbers like --week=-1)
+    if (token === "--week") {
+      const value = args[i + 1];
+      if (!value) {
+        fail("missing value for '--week'\nTry: workdone report --help");
+      }
+      week = value;
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--week=")) {
+      week = token.slice("--week=".length);
+      if (!week) {
+        fail("missing value for '--week'\nTry: workdone report --help");
+      }
+      continue;
+    }
     fail(`unknown option '${token}'\nTry: workdone report --help`);
   }
-  return { sourceSelector, files, view, format };
+  return { sourceSelector, files, view, format, week };
 }
 
 function parseSyncOptions(args: string[]): { sourceSelector?: string } {
@@ -648,6 +669,15 @@ async function handleReport(args: string[]): Promise<void> {
   const options = parseReportOptions(args);
   const currentUserEmail = (await getGlobalGitUserEmail()).trim().toLowerCase();
 
+  let dateRange: DateRange | undefined;
+  if (options.week !== undefined) {
+    try {
+      dateRange = resolveWeekRange(parseWeekOption(options.week));
+    } catch (err) {
+      fail(String(err instanceof Error ? err.message : err) + "\nTry: workdone report --help");
+    }
+  }
+
   const config = await loadConfig();
   if (config.sources.length === 0) {
     console.log("No sources registered.");
@@ -666,7 +696,7 @@ async function handleReport(args: string[]): Promise<void> {
     if (!validation.valid) {
       fail(`selected source is invalid: ${validation.reason}\nTry: workdone sources validate`);
     }
-    const report = await buildWeeklyReport([selectedSource], currentUserEmail);
+    const report = await buildWeeklyReport([selectedSource], currentUserEmail, new Date(), dateRange);
     printReport(report, { includeFiles: options.files, view: options.view, format: options.format });
     return;
   }
@@ -686,7 +716,7 @@ async function handleReport(args: string[]): Promise<void> {
     fail("no valid sources available\nTry: workdone sources validate");
   }
 
-  const report = await buildWeeklyReport(validSources, currentUserEmail);
+  const report = await buildWeeklyReport(validSources, currentUserEmail, new Date(), dateRange);
   printReport(report, { includeFiles: options.files, view: options.view, format: options.format });
 }
 
