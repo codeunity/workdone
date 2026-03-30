@@ -61,3 +61,29 @@ describe("report date-range option validation", () => {
     expect(result.output).toContain("real calendar date");
   });
 });
+
+describe("report shortcut option validation", () => {
+  it("fails when --today and --yesterday are combined", () => {
+    const result = runCli(["report", "--today", "--yesterday"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("cannot be used together");
+  });
+
+  it("fails when --today and --week are combined", () => {
+    const result = runCli(["report", "--today", "--week=-1"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("cannot be used together");
+  });
+
+  it("fails when --this-month and --since are combined", () => {
+    const result = runCli(["report", "--this-month", "--since", "2026-03-01"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("cannot be used together");
+  });
+
+  it("fails when --last-month and --until are combined", () => {
+    const result = runCli(["report", "--last-month", "--until", "2026-03-31"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("cannot be used together");
+  });
+});

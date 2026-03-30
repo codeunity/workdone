@@ -15,7 +15,7 @@ describe("help output", () => {
   it("includes config command in top-level help", () => {
     const output = runCli(["--help"]);
     expect(output).toContain("config                 Print config file location");
-    expect(output).toContain("report                 Print your current week's report (use --source, --view, and --format)");
+    expect(output).toContain("report                 Print your work report");
     expect(output).toContain("sync                   Fetch all remotes for registered sources before reporting across machines");
   });
 
@@ -41,6 +41,18 @@ describe("help output", () => {
     expect(output).toContain("-F, --format <format>  Output format: text | markdown (default: text)");
     expect(output).toContain("git config --global user.email");
     expect(output).toContain("local branches and remote-tracking");
+  });
+
+  it("shows new date-range flags in report help", () => {
+    const output = runCli(["help", "report"]);
+    expect(output).toContain("--week <value>");
+    expect(output).toContain("--since <YYYY-MM-DD>");
+    expect(output).toContain("--until <YYYY-MM-DD>");
+    expect(output).toContain("--today");
+    expect(output).toContain("--yesterday");
+    expect(output).toContain("--this-month");
+    expect(output).toContain("--last-month");
+    expect(output).toContain("--week=-1");
   });
 
   it("supports sync help topic", () => {

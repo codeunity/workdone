@@ -195,6 +195,45 @@ export function resolveDateRange(since: string, until?: string, now: Date = new 
   return { start: sinceDate, end: untilDate };
 }
 
+export type Shortcut = "today" | "yesterday" | "this-month" | "last-month";
+
+/**
+ * Returns a DateRange for a named shortcut relative to now.
+ * - today:      00:00:00 today → now
+ * - yesterday:  00:00:00 yesterday → 23:59:59 yesterday
+ * - this-month: 00:00:00 on the 1st of this month → now
+ * - last-month: 00:00:00 on the 1st of last month → 23:59:59 on the last day of last month
+ */
+export function resolveShortcutRange(shortcut: Shortcut, now: Date = new Date()): DateRange {
+  switch (shortcut) {
+    case "today": {
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      return { start, end: now };
+    }
+    case "yesterday": {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 1);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+    case "this-month": {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      return { start, end: now };
+    }
+    case "last-month": {
+      const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const month = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+      const start = new Date(year, month, 1, 0, 0, 0, 0);
+      // Last day of last month = day 0 of current month
+      const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      return { start, end };
+    }
+  }
+}
+
 export function toDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");

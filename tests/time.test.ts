@@ -5,6 +5,7 @@ import {
   parseDateOption,
   parseWeekOption,
   resolveDateRange,
+  resolveShortcutRange,
   resolveWeekRange,
   toDateKey,
   toDayLabel,
@@ -224,5 +225,55 @@ describe("resolveDateRange", () => {
 
   it("throws on invalid until date", () => {
     expect(() => resolveDateRange("2026-03-20", "30-3-2026", now)).toThrow();
+  });
+});
+
+describe("resolveShortcutRange", () => {
+  // Fixed "now": Wednesday 2026-03-18 15:30:00
+  const now = new Date("2026-03-18T15:30:00");
+
+  it("today: starts at 00:00 today and ends at now", () => {
+    const range = resolveShortcutRange("today", now);
+    expect(toDateKey(range.start)).toBe("2026-03-18");
+    expect(range.start.getHours()).toBe(0);
+    expect(range.start.getMinutes()).toBe(0);
+    expect(range.start.getSeconds()).toBe(0);
+    expect(range.end).toBe(now);
+  });
+
+  it("yesterday: spans the full previous day (00:00 – 23:59:59)", () => {
+    const range = resolveShortcutRange("yesterday", now);
+    expect(toDateKey(range.start)).toBe("2026-03-17");
+    expect(range.start.getHours()).toBe(0);
+    expect(toDateKey(range.end)).toBe("2026-03-17");
+    expect(range.end.getHours()).toBe(23);
+    expect(range.end.getMinutes()).toBe(59);
+    expect(range.end.getSeconds()).toBe(59);
+  });
+
+  it("this-month: starts on the 1st at 00:00 and ends at now", () => {
+    const range = resolveShortcutRange("this-month", now);
+    expect(toDateKey(range.start)).toBe("2026-03-01");
+    expect(range.start.getHours()).toBe(0);
+    expect(range.end).toBe(now);
+  });
+
+  it("last-month: spans the full previous calendar month", () => {
+    const range = resolveShortcutRange("last-month", now);
+    // Previous month = February 2026
+    expect(toDateKey(range.start)).toBe("2026-02-01");
+    expect(range.start.getHours()).toBe(0);
+    expect(toDateKey(range.end)).toBe("2026-02-28");
+    expect(range.end.getHours()).toBe(23);
+    expect(range.end.getMinutes()).toBe(59);
+    expect(range.end.getSeconds()).toBe(59);
+  });
+
+  it("last-month: handles January correctly (wraps to previous year)", () => {
+    const jan = new Date("2026-01-15T10:00:00");
+    const range = resolveShortcutRange("last-month", jan);
+    // Previous month = December 2025
+    expect(toDateKey(range.start)).toBe("2025-12-01");
+    expect(toDateKey(range.end)).toBe("2025-12-31");
   });
 });

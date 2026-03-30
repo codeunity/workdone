@@ -7,8 +7,8 @@ import { getGlobalGitUserEmail, syncGitSource } from "./core/git";
 import { printReport, printValidationResults } from "./core/output";
 import { getConfigPath, normalizeInputPath } from "./core/paths";
 import { buildWeeklyReport } from "./core/report";
-import { parseWeekOption, resolveWeekRange, resolveDateRange } from "./core/time";
-import type { DateRange } from "./core/time";
+import { parseWeekOption, resolveWeekRange, resolveDateRange, resolveShortcutRange } from "./core/time";
+import type { DateRange, Shortcut } from "./core/time";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
 import {
   buildSourceSelectionSession,
@@ -29,7 +29,7 @@ USAGE
 
 COMMANDS
   config                 Print config file location
-  report                 Print your current week's report (use --source, --view, and --format)
+  report                 Print your work report (default: current week; use --week, --since, --until, --today, etc.)
   sync                   Fetch all remotes for registered sources before reporting across machines
   sources list           List registered sources
   sources add <path>     Register a local git repository source (use --name for alias)
@@ -61,20 +61,35 @@ EXAMPLES
 }
 
 function printReportHelp(): void {
-  console.log(`Print the current week's work report.
+  console.log(`Print a work report for a configurable date range.
 
 USAGE
   workdone report [options]
 
 DESCRIPTION
-  Generates a report for the current local week:
-  Monday 00:00 (local time) through now.
+  Generates a report for the specified date range (default: the current local week,
+  Monday 00:00 (local time) through now).
 
   Includes only commits authored by your global git email:
   git config --global user.email
 
   Scans commits reachable from local branches and remote-tracking
   branches already present in the local clone.
+
+DATE RANGE OPTIONS (mutually exclusive)
+  --week <value>         Relative or absolute ISO week
+                           Relative: --week=-1 (last week), --week=-2 (two weeks ago)
+                           NOTE: use --week=-1 syntax (with =) for negative values
+                           Absolute: --week=5 (ISO week 5 of current year)
+                                     --week=2026-5 (ISO week 5 of 2026)
+                           Weeks run Monday 00:00:00 through Sunday 23:59:59 (local time)
+                           Week numbers follow ISO 8601
+  --since <YYYY-MM-DD>   Start date (00:00:00 local time); end defaults to now
+  --until <YYYY-MM-DD>   End date (23:59:59 local time); requires --since
+  --today                Today from 00:00:00 until now
+  --yesterday            Yesterday from 00:00:00 through 23:59:59
+  --this-month           First day of current month through now
+  --last-month           Full previous calendar month
 
 VIEWS
   timeline               Linear commit overview grouped by day (default)
@@ -99,8 +114,17 @@ OPTIONS
   -h, --help             Show help
 
 EXAMPLES
-  workdone sync
   workdone report
+  workdone report --week=-1
+  workdone report --week=-2
+  workdone report --week=5
+  workdone report --week=2026-5
+  workdone report --since 2026-03-20
+  workdone report --since 2026-03-20 --until 2026-03-30
+  workdone report --today
+  workdone report --yesterday
+  workdone report --this-month
+  workdone report --last-month
   workdone report --view timeline
   workdone report --view by-source
   workdone report --format markdown
@@ -406,6 +430,7 @@ function parseReportOptions(args: string[]): {
   week?: string;
   since?: string;
   until?: string;
+  shortcut?: Shortcut;
 } {
   let sourceSelector: string | undefined;
   let files = false;
@@ -414,6 +439,7 @@ function parseReportOptions(args: string[]): {
   let week: string | undefined;
   let since: string | undefined;
   let until: string | undefined;
+  let shortcut: Shortcut | undefined;
   for (let i = 0; i < args.length; i += 1) {
     const token = args[i];
     if (token === "-h" || token === "--help") {
@@ -492,9 +518,37 @@ function parseReportOptions(args: string[]): {
       i += 1;
       continue;
     }
+    if (token === "--today") {
+      if (shortcut !== undefined) {
+        fail(`--today and --${shortcut} cannot be used together.\nTry: workdone report --help`);
+      }
+      shortcut = "today";
+      continue;
+    }
+    if (token === "--yesterday") {
+      if (shortcut !== undefined) {
+        fail(`--yesterday and --${shortcut} cannot be used together.\nTry: workdone report --help`);
+      }
+      shortcut = "yesterday";
+      continue;
+    }
+    if (token === "--this-month") {
+      if (shortcut !== undefined) {
+        fail(`--this-month and --${shortcut} cannot be used together.\nTry: workdone report --help`);
+      }
+      shortcut = "this-month";
+      continue;
+    }
+    if (token === "--last-month") {
+      if (shortcut !== undefined) {
+        fail(`--last-month and --${shortcut} cannot be used together.\nTry: workdone report --help`);
+      }
+      shortcut = "last-month";
+      continue;
+    }
     fail(`unknown option '${token}'\nTry: workdone report --help`);
   }
-  return { sourceSelector, files, view, format, week, since, until };
+  return { sourceSelector, files, view, format, week, since, until, shortcut };
 }
 
 function parseSyncOptions(args: string[]): { sourceSelector?: string } {
@@ -699,11 +753,22 @@ async function handleReport(args: string[]): Promise<void> {
     if (options.until !== undefined) {
       fail("--week and --until cannot be used together.\nTry: workdone report --help");
     }
+    if (options.shortcut !== undefined) {
+      fail(`--week and --${options.shortcut} cannot be used together.\nTry: workdone report --help`);
+    }
     try {
       dateRange = resolveWeekRange(parseWeekOption(options.week));
     } catch (err) {
       fail(String(err instanceof Error ? err.message : err) + "\nTry: workdone report --help");
     }
+  } else if (options.shortcut !== undefined) {
+    if (options.since !== undefined) {
+      fail(`--${options.shortcut} and --since cannot be used together.\nTry: workdone report --help`);
+    }
+    if (options.until !== undefined) {
+      fail(`--${options.shortcut} and --until cannot be used together.\nTry: workdone report --help`);
+    }
+    dateRange = resolveShortcutRange(options.shortcut);
   } else if (options.since !== undefined) {
     try {
       dateRange = resolveDateRange(options.since, options.until);
