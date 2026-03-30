@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/codeunity/workdone/compare/v0.4.0...v0.5.0) (2026-03-30)
+
+
+### Features
+
+* **report:** flexible date-range selection ([#25](https://github.com/codeunity/workdone/issues/25)) ([3f806e7](https://github.com/codeunity/workdone/commit/3f806e7379a31e5171c457a7a9b97af04a19f3b1))
+
 ## [0.4.0](https://github.com/codeunity/workdone/compare/v0.3.0...v0.4.0) (2026-03-23)
 
 
