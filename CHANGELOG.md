@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/codeunity/workdone/compare/v0.7.1...v0.8.0) (2026-03-31)
+
+
+### Features
+
+* E2E test suite with fake git repositories ([#37](https://github.com/codeunity/workdone/issues/37)) ([be50cba](https://github.com/codeunity/workdone/commit/be50cba4a67727efbe063943379e2aac2fda0626))
+
 ## [0.7.1](https://github.com/codeunity/workdone/compare/v0.7.0...v0.7.1) (2026-03-31)
 
 
