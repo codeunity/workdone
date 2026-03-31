@@ -1,29 +1,45 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
 exports[`workdone report default timeline text view matches snapshot 1`] = `
-"Week starting 30.3.2026 (Monday, local time)
+"Week starting 2026-03-30 (Monday, local time)
+
+2026-03-31 (Tue)
+Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
+Time   Source       Hash     Files+  -  Δ  Bin  Subject
+-----  -----------  -------  -----  -  -  -  ---  -------
+11:00  repo-single  173889e      1  2  0  2    0  add user profile endpoint
+
+-------------------------------------------------------------------------------
 
 2026-03-30 (Mon)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source       Hash     Files+  -  Δ  Bin  Subject
 -----  -----------  -------  -----  -  -  -  ---  -------
-11:00  repo-single  946a847      1  2  0  2    0  add authentication middleware
+09:00  repo-single  946a847      1  2  0  2    0  add authentication middleware
 "
 `;
 
 exports[`workdone report by-source view matches snapshot 1`] = `
-"Week starting 30.3.2026 (Monday, local time)
+"Week starting 2026-03-30 (Monday, local time)
 
 ===============================================================================
 [repo-single]
-Source total: 1 commits, 1 files, +2 -0, 2, 0 binaries
+Source total: 2 commits, 2 files, +4 -0, 4, 0 binaries
 ===============================================================================
+
+2026-03-31 (Tue)
+Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
+Time   Hash     Files+  -  Δ  Bin  Subject
+-----  -------  -----  -  -  -  ---  -------
+11:00  173889e      1  2  0  2    0  add user profile endpoint
+
+-------------------------------------------------------------------------------
 
 2026-03-30 (Mon)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Hash     Files+  -  Δ  Bin  Subject
 -----  -------  -----  -  -  -  ---  -------
-11:00  946a847      1  2  0  2    0  add authentication middleware
+09:00  946a847      1  2  0  2    0  add authentication middleware
 "
 `;
 
@@ -31,35 +47,51 @@ exports[`workdone report markdown format matches snapshot 1`] = `
 "# Workdone Report
 Week starting: 2026-03-30 (Monday, local time)
 
+## 2026-03-31 (Tue)
+Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
+
+| Time | Source | Hash | Files | + | - | Δ | Bin | Subject |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| 11:00 | repo-single | 173889e | 1 | 2 | 0 | 2 | 0 | add user profile endpoint |
+
 ## 2026-03-30 (Mon)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 
 | Time | Source | Hash | Files | + | - | Δ | Bin | Subject |
 |---|---|---|---:|---:|---:|---:|---:|---|
-| 11:00 | repo-single | 946a847 | 1 | 2 | 0 | 2 | 0 | add authentication middleware |
+| 09:00 | repo-single | 946a847 | 1 | 2 | 0 | 2 | 0 | add authentication middleware |
 "
 `;
 
 exports[`workdone report --files flag matches snapshot 1`] = `
-"Week starting 30.3.2026 (Monday, local time)
+"Week starting 2026-03-30 (Monday, local time)
+
+2026-03-31 (Tue)
+Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
+Time   Source       Hash     Files+  -  Δ  Bin  Subject
+-----  -----------  -------  -----  -  -  -  ---  -------
+11:00  repo-single  173889e      1  2  0  2    0  add user profile endpoint
+  profile.ts (+2 -0, 2)
+
+-------------------------------------------------------------------------------
 
 2026-03-30 (Mon)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source       Hash     Files+  -  Δ  Bin  Subject
 -----  -----------  -------  -----  -  -  -  ---  -------
-11:00  repo-single  946a847      1  2  0  2    0  add authentication middleware
+09:00  repo-single  946a847      1  2  0  2    0  add authentication middleware
   auth.ts (+2 -0, 2)
 "
 `;
 
 exports[`workdone report multi-user report includes Author column and both users' commits 1`] = `
-"Week starting 30.3.2026 (Monday, local time)
+"Week starting 2026-03-30 (Monday, local time)
 
 2026-03-30 (Mon)
 Day total: 2 commits, 2 files, +4 -0, 4, 0 binaries
 Time   Source      Hash     Author             Files+  -  Δ  Bin  Subject
 -----  ----------  -------  -----------------  -----  -  -  -  ---  -------
-18:00  repo-multi  5e6eed5  bob@example.com        1  2  0  2    0  add database query builder
-12:00  repo-multi  f0c0a98  alice@example.com      1  2  0  2    0  add data fetching layer
+16:00  repo-multi  5e6eed5  bob@example.com        1  2  0  2    0  add database query builder
+10:00  repo-multi  f0c0a98  alice@example.com      1  2  0  2    0  add data fetching layer
 "
 `;

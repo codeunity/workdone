@@ -10,7 +10,8 @@ export function runCli(args: string[], env?: Record<string, string>): CliResult 
   const result = spawnSync("bun", ["run", "src/cli.ts", ...args], {
     cwd: process.cwd(),
     encoding: "utf8",
-    env: { ...process.env, ...env },
+    // Force UTC so time-based output is consistent across timezones in snapshots.
+    env: { ...process.env, TZ: "UTC", ...env },
   });
   return {
     stdout: result.stdout ?? "",
