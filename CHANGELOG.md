@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/codeunity/workdone/compare/workdone-v0.6.0...workdone-v0.7.0) (2026-03-31)
+
+
+### Features
+
+* make --version accurate and harden versioning pipeline ([#31](https://github.com/codeunity/workdone/issues/31)) ([738a165](https://github.com/codeunity/workdone/commit/738a165ab26c4520f5fb07a2136fd7ffbe340cb4))
+
+
 ## [0.6.0](https://github.com/codeunity/workdone/compare/v0.5.0...v0.6.0) (2026-03-31)
 
 
