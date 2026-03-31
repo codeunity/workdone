@@ -203,10 +203,10 @@ function printReportMarkdown(report: WeeklyReport, options: PrintReportOptions):
         console.log(`\n### ${dayLabel}`);
         console.log(formatTotalsLine("Day total: ", dayTotals));
         const bySourceHeader = options.showAuthor
-          ? "\n| Time | Hash | Files | + | - | Δ | Bin | Subject | Author |"
+          ? "\n| Time | Hash | Author | Files | + | - | Δ | Bin | Subject |"
           : "\n| Time | Hash | Files | + | - | Δ | Bin | Subject |";
         const bySourceSep = options.showAuthor
-          ? "|---|---|---:|---:|---:|---:|---:|---|---|"
+          ? "|---|---|---|---:|---:|---:|---:|---:|---|"
           : "|---|---|---:|---:|---:|---:|---:|---|";
         console.log(bySourceHeader);
         console.log(bySourceSep);
@@ -216,7 +216,7 @@ function printReportMarkdown(report: WeeklyReport, options: PrintReportOptions):
           const totals = commitTotals(commit);
           const authorCell = options.showAuthor ? ` ${escapeMarkdownCell(commit.authorEmail)} |` : "";
           console.log(
-            `| ${toTimeLabel(commit.date)} | ${shortHash} | ${totals.fileCount} | ${totals.addedTotal} | ${totals.deletedTotal} | ${totals.changedTotal} | ${totals.binaryCount} | ${escapeMarkdownCell(commit.subject)} |${authorCell}`,
+            `| ${toTimeLabel(commit.date)} | ${shortHash} |${authorCell} ${totals.fileCount} | ${totals.addedTotal} | ${totals.deletedTotal} | ${totals.changedTotal} | ${totals.binaryCount} | ${escapeMarkdownCell(commit.subject)} |`,
           );
 
           if (options.includeFiles && commit.files.length > 0) {
@@ -240,10 +240,10 @@ function printReportMarkdown(report: WeeklyReport, options: PrintReportOptions):
     const dayTotals = computeTotals(day.commits);
     console.log(formatTotalsLine("Day total: ", dayTotals));
     const timelineHeader = options.showAuthor
-      ? "\n| Time | Source | Hash | Files | + | - | Δ | Bin | Subject | Author |"
+      ? "\n| Time | Source | Hash | Author | Files | + | - | Δ | Bin | Subject |"
       : "\n| Time | Source | Hash | Files | + | - | Δ | Bin | Subject |";
     const timelineSep = options.showAuthor
-      ? "|---|---|---|---:|---:|---:|---:|---:|---|---|"
+      ? "|---|---|---|---|---:|---:|---:|---:|---:|---|"
       : "|---|---|---|---:|---:|---:|---:|---:|---|";
     console.log(timelineHeader);
     console.log(timelineSep);
@@ -253,7 +253,7 @@ function printReportMarkdown(report: WeeklyReport, options: PrintReportOptions):
       const totals = commitTotals(commit);
       const authorCell = options.showAuthor ? ` ${escapeMarkdownCell(commit.authorEmail)} |` : "";
       console.log(
-        `| ${toTimeLabel(commit.date)} | ${escapeMarkdownCell(commit.repoName)} | ${shortHash} | ${totals.fileCount} | ${totals.addedTotal} | ${totals.deletedTotal} | ${totals.changedTotal} | ${totals.binaryCount} | ${escapeMarkdownCell(commit.subject)} |${authorCell}`,
+        `| ${toTimeLabel(commit.date)} | ${escapeMarkdownCell(commit.repoName)} | ${shortHash} |${authorCell} ${totals.fileCount} | ${totals.addedTotal} | ${totals.deletedTotal} | ${totals.changedTotal} | ${totals.binaryCount} | ${escapeMarkdownCell(commit.subject)} |`,
       );
 
       if (options.includeFiles && commit.files.length > 0) {
@@ -357,13 +357,15 @@ function printReportText(report: WeeklyReport, options: PrintReportOptions): voi
           ...commits.map((commit) => String(commit.files.filter((file) => file.binary).length).length),
         );
 
-        const authorSuffix = options.showAuthor ? `  ${authorHeader}` : "";
-        const authorDashes = options.showAuthor ? `  ${"-".repeat(authorHeader.length)}` : "";
+        const authorWidth = options.showAuthor
+          ? Math.max(authorHeader.length, ...commits.map((commit) => commit.authorEmail.length))
+          : 0;
+
         console.log(
-          `${padRight(timeHeader, timeWidth)}  ${padRight(hashHeader, hashWidth)}  ${padLeft(filesHeader, filesWidth)}  ${padLeft(addHeader, addWidth)}  ${padLeft(delHeader, delWidth)}  ${padLeft(deltaHeader, deltaWidth)}  ${padLeft(binHeader, binWidth)}  ${subjectHeader}${authorSuffix}`,
+          `${padRight(timeHeader, timeWidth)}  ${padRight(hashHeader, hashWidth)}${options.showAuthor ? `  ${padRight(authorHeader, authorWidth)}` : ""}  ${padLeft(filesHeader, filesWidth)}${padLeft(addHeader, addWidth)}  ${padLeft(delHeader, delWidth)}  ${padLeft(deltaHeader, deltaWidth)}  ${padLeft(binHeader, binWidth)}  ${subjectHeader}`,
         );
         console.log(
-          `${"-".repeat(timeWidth)}  ${"-".repeat(hashWidth)}  ${"-".repeat(filesWidth)}  ${"-".repeat(addWidth)}  ${"-".repeat(delWidth)}  ${"-".repeat(deltaWidth)}  ${"-".repeat(binWidth)}  ${"-".repeat(subjectHeader.length)}${authorDashes}`,
+          `${"-".repeat(timeWidth)}  ${"-".repeat(hashWidth)}${options.showAuthor ? `  ${"-".repeat(authorWidth)}` : ""}  ${"-".repeat(filesWidth)}  ${"-".repeat(addWidth)}  ${"-".repeat(delWidth)}  ${"-".repeat(deltaWidth)}  ${"-".repeat(binWidth)}  ${"-".repeat(subjectHeader.length)}`,
         );
 
         for (const commit of commits) {
@@ -373,10 +375,10 @@ function printReportText(report: WeeklyReport, options: PrintReportOptions): voi
           const deletedTotal = commit.files.reduce((sum, file) => sum + file.deleted, 0);
           const changedTotal = addedTotal + deletedTotal;
           const binaryCount = commit.files.filter((file) => file.binary).length;
-          const authorAnnotation = options.showAuthor ? `  ${commit.authorEmail}` : "";
+          const authorAnnotation = options.showAuthor ? `  ${padRight(commit.authorEmail, authorWidth)}` : "";
 
           console.log(
-            `${padRight(toTimeLabel(commit.date), timeWidth)}  ${padRight(shortHash, hashWidth)}  ${padLeft(String(fileCount), filesWidth)}  ${padLeft(String(addedTotal), addWidth)}  ${padLeft(String(deletedTotal), delWidth)}  ${padLeft(String(changedTotal), deltaWidth)}  ${padLeft(String(binaryCount), binWidth)}  ${truncateText(commit.subject, 72)}${authorAnnotation}`,
+            `${padRight(toTimeLabel(commit.date), timeWidth)}  ${padRight(shortHash, hashWidth)}${authorAnnotation}  ${padLeft(String(fileCount), filesWidth)}  ${padLeft(String(addedTotal), addWidth)}  ${padLeft(String(deletedTotal), delWidth)}  ${padLeft(String(changedTotal), deltaWidth)}  ${padLeft(String(binaryCount), binWidth)}  ${truncateText(commit.subject, 72)}`,
           );
 
           if (options.includeFiles) {
@@ -439,13 +441,15 @@ function printReportText(report: WeeklyReport, options: PrintReportOptions): voi
       ...day.commits.map((commit) => String(commit.files.filter((file) => file.binary).length).length),
     );
 
-    const authorSuffix = options.showAuthor ? `  ${authorHeader}` : "";
-    const authorDashes = options.showAuthor ? `  ${"-".repeat(authorHeader.length)}` : "";
+    const authorWidth = options.showAuthor
+      ? Math.max(authorHeader.length, ...day.commits.map((commit) => commit.authorEmail.length))
+      : 0;
+
     console.log(
-      `${padRight(timeHeader, timeWidth)}  ${padRight(sourceHeader, sourceWidth)}  ${padRight(hashHeader, hashWidth)}  ${padLeft(filesHeader, filesWidth)}  ${padLeft(addHeader, addWidth)}  ${padLeft(delHeader, delWidth)}  ${padLeft(deltaHeader, deltaWidth)}  ${padLeft(binHeader, binWidth)}  ${subjectHeader}${authorSuffix}`,
+      `${padRight(timeHeader, timeWidth)}  ${padRight(sourceHeader, sourceWidth)}  ${padRight(hashHeader, hashWidth)}${options.showAuthor ? `  ${padRight(authorHeader, authorWidth)}` : ""}  ${padLeft(filesHeader, filesWidth)}${padLeft(addHeader, addWidth)}  ${padLeft(delHeader, delWidth)}  ${padLeft(deltaHeader, deltaWidth)}  ${padLeft(binHeader, binWidth)}  ${subjectHeader}`,
     );
     console.log(
-      `${"-".repeat(timeWidth)}  ${"-".repeat(sourceWidth)}  ${"-".repeat(hashWidth)}  ${"-".repeat(filesWidth)}  ${"-".repeat(addWidth)}  ${"-".repeat(delWidth)}  ${"-".repeat(deltaWidth)}  ${"-".repeat(binWidth)}  ${"-".repeat(subjectHeader.length)}${authorDashes}`,
+      `${"-".repeat(timeWidth)}  ${"-".repeat(sourceWidth)}  ${"-".repeat(hashWidth)}${options.showAuthor ? `  ${"-".repeat(authorWidth)}` : ""}  ${"-".repeat(filesWidth)}  ${"-".repeat(addWidth)}  ${"-".repeat(delWidth)}  ${"-".repeat(deltaWidth)}  ${"-".repeat(binWidth)}  ${"-".repeat(subjectHeader.length)}`,
     );
 
     for (const commit of day.commits) {
@@ -455,10 +459,10 @@ function printReportText(report: WeeklyReport, options: PrintReportOptions): voi
       const deletedTotal = commit.files.reduce((sum, file) => sum + file.deleted, 0);
       const changedTotal = addedTotal + deletedTotal;
       const binaryCount = commit.files.filter((file) => file.binary).length;
-      const authorAnnotation = options.showAuthor ? `  ${commit.authorEmail}` : "";
+      const authorAnnotation = options.showAuthor ? `  ${padRight(commit.authorEmail, authorWidth)}` : "";
 
       console.log(
-        `${padRight(toTimeLabel(commit.date), timeWidth)}  ${padRight(commit.repoName, sourceWidth)}  ${padRight(shortHash, hashWidth)}  ${padLeft(String(fileCount), filesWidth)}  ${padLeft(String(addedTotal), addWidth)}  ${padLeft(String(deletedTotal), delWidth)}  ${padLeft(String(changedTotal), deltaWidth)}  ${padLeft(String(binaryCount), binWidth)}  ${truncateText(commit.subject, 72)}${authorAnnotation}`,
+        `${padRight(toTimeLabel(commit.date), timeWidth)}  ${padRight(commit.repoName, sourceWidth)}  ${padRight(shortHash, hashWidth)}${authorAnnotation}  ${padLeft(String(fileCount), filesWidth)}  ${padLeft(String(addedTotal), addWidth)}  ${padLeft(String(deletedTotal), delWidth)}  ${padLeft(String(changedTotal), deltaWidth)}  ${padLeft(String(binaryCount), binWidth)}  ${truncateText(commit.subject, 72)}`,
       );
       if (options.includeFiles) {
         for (const file of commit.files) {
