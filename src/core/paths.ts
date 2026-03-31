@@ -24,6 +24,9 @@ export function getConfigDir(): string {
 }
 
 export function getConfigPath(): string {
+  if (process.env.WORKDONE_CONFIG_PATH) {
+    return process.env.WORKDONE_CONFIG_PATH;
+  }
   return path.join(getConfigDir(), "config.json");
 }
 
