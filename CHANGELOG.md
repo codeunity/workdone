@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/codeunity/workdone/compare/v0.5.0...v0.6.0) (2026-03-31)
+
+
+### Features
+
+* multi-user support with persisted config ([#29](https://github.com/codeunity/workdone/issues/29)) ([7f99252](https://github.com/codeunity/workdone/commit/7f992529bd72a7185b3d688741a1091d46ed4a10))
+
 ## [0.5.0](https://github.com/codeunity/workdone/compare/v0.4.0...v0.5.0) (2026-03-30)
 
 
