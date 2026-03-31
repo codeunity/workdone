@@ -71,6 +71,7 @@ jobs:
         run: |
           .\dist\${{ env.OUTPUT_NAME }} --help
           .\dist\${{ env.OUTPUT_NAME }} report --help
+          .\dist\${{ env.OUTPUT_NAME }} --version
 
       - name: Smoke check executable (macOS)
         if: runner.os == 'macOS'
@@ -78,6 +79,7 @@ jobs:
           chmod +x ./dist/${{ env.OUTPUT_NAME }}
           ./dist/${{ env.OUTPUT_NAME }} --help
           ./dist/${{ env.OUTPUT_NAME }} report --help
+          ./dist/${{ env.OUTPUT_NAME }} --version
 
       - name: Generate checksum (Windows)
         if: runner.os == 'Windows'

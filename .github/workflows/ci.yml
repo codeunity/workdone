@@ -36,6 +36,14 @@ jobs:
           bun run src/cli.ts --help
           bun run src/cli.ts report --help
 
+      - name: Check version drift
+        run: |
+          REPORTED=$(bun run src/cli.ts --version)
+          EXPECTED=$(node -e "process.stdout.write(require('./package.json').version)")
+          echo "Reported version : $REPORTED"
+          echo "package.json     : $EXPECTED"
+          [ "$REPORTED" = "$EXPECTED" ] || { echo "Version drift detected!"; exit 1; }
+
   build_artifacts:
     name: Build ${{ matrix.label }}
     needs: test
@@ -71,6 +79,7 @@ jobs:
         run: |
           .\dist\${{ matrix.output }} --help
           .\dist\${{ matrix.output }} report --help
+          .\dist\${{ matrix.output }} --version
 
       - name: Smoke check executable (macOS)
         if: runner.os == 'macOS'
@@ -78,6 +87,7 @@ jobs:
           chmod +x ./dist/${{ matrix.output }}
           ./dist/${{ matrix.output }} --help
           ./dist/${{ matrix.output }} report --help
+          ./dist/${{ matrix.output }} --version
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
