@@ -870,10 +870,6 @@ async function handleReport(args: string[]): Promise<void> {
   }
 
   const config = await loadConfig();
-  const configuredUsers = listUsers(config);
-  const effectiveUsers = configuredUsers.length > 0
-    ? configuredUsers
-    : [(await getGlobalGitUserEmail()).trim().toLowerCase()];
 
   if (config.sources.length === 0) {
     console.log("No sources registered.");
@@ -882,6 +878,11 @@ async function handleReport(args: string[]): Promise<void> {
     console.log("  workdone sources validate");
     return;
   }
+
+  const configuredUsers = listUsers(config);
+  const effectiveUsers = configuredUsers.length > 0
+    ? configuredUsers
+    : [(await getGlobalGitUserEmail()).trim().toLowerCase()];
 
   if (options.sourceSelector) {
     const selectedSource = findSourceByAliasOrPath(options.sourceSelector, config.sources);

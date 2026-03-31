@@ -272,7 +272,7 @@ function printReportMarkdown(report: WeeklyReport, options: PrintReportOptions):
 
 function printReportText(report: WeeklyReport, options: PrintReportOptions): void {
   const view = options.view ?? "timeline";
-  console.log(`Week starting ${report.rangeStart.toLocaleDateString()} (Monday, local time)`);
+  console.log(`Week starting ${toDateKey(report.rangeStart)} (Monday, local time)`);
 
   if (report.days.length === 0) {
     console.log("\nNo work found this week.");
