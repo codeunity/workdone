@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.1](https://github.com/codeunity/workdone/compare/v0.7.0...v0.7.1) (2026-03-31)
+
+
+### Bug Fixes
+
+* restore plain v{version} tag format for release-please ([#33](https://github.com/codeunity/workdone/issues/33)) ([365d341](https://github.com/codeunity/workdone/commit/365d341677aa013ff633cfc66355bedfd91668a8))
+
+
+### Documentation
+
+* rewrite README with end-user focus and developer section ([#35](https://github.com/codeunity/workdone/issues/35)) ([f41a5a8](https://github.com/codeunity/workdone/commit/f41a5a8ce4596ddcdb37d2b01c9db0ee040af799))
+
 ## [0.7.0](https://github.com/codeunity/workdone/compare/workdone-v0.6.0...workdone-v0.7.0) (2026-03-31)
 
 
