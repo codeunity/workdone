@@ -11,6 +11,7 @@ import { parseWeekOption, resolveWeekRange, resolveDateRange, resolveShortcutRan
 import type { DateRange, Shortcut } from "./core/time";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
 import { addUser, listUsers, removeUser } from "./core/users";
+import { VERSION } from "./core/version";
 import {
   buildSourceSelectionSession,
   formatSelectionEntryLabel,
@@ -19,8 +20,6 @@ import {
 } from "./core/source-selection";
 import { validateSource, validateSources } from "./core/validate";
 import type { Source } from "./types";
-
-const VERSION = "0.1.0";
 
 function printTopHelp(): void {
   console.log(`workdone - Weekly work report from your registered sources
