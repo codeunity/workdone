@@ -5,7 +5,7 @@ import type { CommitEntry, DayGroup, Source, WeeklyReport } from "../types";
 
 export async function buildWeeklyReport(
   sources: Source[],
-  authorEmail: string,
+  authorEmails: string[],
   now: Date = new Date(),
   range?: DateRange,
 ): Promise<WeeklyReport> {
@@ -16,7 +16,7 @@ export async function buildWeeklyReport(
   const allCommits = filterCommitsByAuthorEmail(
     await Promise.all(sources.map((source) => getWeeklyCommits(source.path, source.name, sinceIso, untilIso)))
       .then((results) => dedupeCommitsByHash(results.flat())),
-    authorEmail,
+    authorEmails,
   );
 
   allCommits.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -50,10 +50,10 @@ export async function buildWeeklyReport(
 
 export function filterCommitsByAuthorEmail<T extends { authorEmail: string }>(
   commits: T[],
-  email: string,
+  emails: string[],
 ): T[] {
-  const expected = email.trim().toLowerCase();
-  return commits.filter((commit) => commit.authorEmail.trim().toLowerCase() === expected);
+  const normalised = emails.map((e) => e.trim().toLowerCase());
+  return commits.filter((commit) => normalised.includes(commit.authorEmail.trim().toLowerCase()));
 }
 
 export function dedupeCommitsByHash(commits: CommitEntry[]): CommitEntry[] {

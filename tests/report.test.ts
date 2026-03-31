@@ -2,16 +2,44 @@ import { describe, expect, it } from "bun:test";
 import { dedupeCommitsByHash, filterCommitsByAuthorEmail } from "../src/core/report";
 
 describe("report author filter", () => {
-  it("keeps only commits from matching author email", () => {
+  it("keeps only commits matching a single email in the array", () => {
     const commits = [
       { authorEmail: "dev@example.com", hash: "a" },
       { authorEmail: "other@example.com", hash: "b" },
       { authorEmail: "DEV@example.com", hash: "c" },
     ];
 
-    const filtered = filterCommitsByAuthorEmail(commits, "dev@example.com");
+    const filtered = filterCommitsByAuthorEmail(commits, ["dev@example.com"]);
     expect(filtered).toHaveLength(2);
     expect(filtered.map((commit) => commit.hash)).toEqual(["a", "c"]);
+  });
+
+  it("keeps commits matching any email in a multi-email array (OR logic)", () => {
+    const commits = [
+      { authorEmail: "alice@example.com", hash: "a" },
+      { authorEmail: "bob@example.com", hash: "b" },
+      { authorEmail: "carol@example.com", hash: "c" },
+    ];
+
+    const filtered = filterCommitsByAuthorEmail(commits, ["alice@example.com", "bob@example.com"]);
+    expect(filtered).toHaveLength(2);
+    expect(filtered.map((commit) => commit.hash)).toEqual(["a", "b"]);
+  });
+
+  it("returns no commits for an empty email array", () => {
+    const commits = [
+      { authorEmail: "dev@example.com", hash: "a" },
+    ];
+    expect(filterCommitsByAuthorEmail(commits, [])).toHaveLength(0);
+  });
+
+  it("matches case-insensitively across all emails in the array", () => {
+    const commits = [
+      { authorEmail: "Alice@Example.COM", hash: "a" },
+      { authorEmail: "BOB@EXAMPLE.COM", hash: "b" },
+    ];
+    const filtered = filterCommitsByAuthorEmail(commits, ["alice@example.com", "bob@example.com"]);
+    expect(filtered).toHaveLength(2);
   });
 
   it("deduplicates commits by exact hash", () => {
@@ -50,3 +78,4 @@ describe("report author filter", () => {
     expect(deduped.map((commit) => commit.hash)).toEqual(["abc123", "def456"]);
   });
 });
+
