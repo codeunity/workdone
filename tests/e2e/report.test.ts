@@ -192,6 +192,16 @@ describe("workdone report date-range options", () => {
     expect(result.stdout).not.toContain("todays work");
   });
 
+  it("--last-week shows last week's commit and not this week's", async () => {
+    const cfg = await createConfig(dateRangeSource(), [ALICE]);
+    cleanup = cfg.cleanup;
+
+    const result = runCli(["report", "--last-week"], configEnv(cfg.configPath));
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("last week work");
+    expect(result.stdout).not.toContain("todays work");
+  });
+
   it("--since exit code is 0 for a valid date", async () => {
     const cfg = await createConfig(dateRangeSource(), [ALICE]);
     cleanup = cfg.cleanup;

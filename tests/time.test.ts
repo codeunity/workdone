@@ -276,4 +276,33 @@ describe("resolveShortcutRange", () => {
     expect(toDateKey(range.start)).toBe("2025-12-01");
     expect(toDateKey(range.end)).toBe("2025-12-31");
   });
+
+  it("last-week: spans Mon 00:00:00 through Sun 23:59:59 of the previous ISO week", () => {
+    // now = Wednesday 2026-03-18; previous ISO week is 2026-03-09 (Mon) – 2026-03-15 (Sun)
+    const range = resolveShortcutRange("last-week", now);
+    expect(toDateKey(range.start)).toBe("2026-03-09");
+    expect(range.start.getHours()).toBe(0);
+    expect(range.start.getMinutes()).toBe(0);
+    expect(range.start.getSeconds()).toBe(0);
+    expect(toDateKey(range.end)).toBe("2026-03-15");
+    expect(range.end.getHours()).toBe(23);
+    expect(range.end.getMinutes()).toBe(59);
+    expect(range.end.getSeconds()).toBe(59);
+  });
+
+  it("last-week: matches --week=-1 exactly", () => {
+    const shortcutRange = resolveShortcutRange("last-week", now);
+    const weekRange = resolveWeekRange({ kind: "relative", offset: -1 }, now);
+    expect(shortcutRange.start.getTime()).toBe(weekRange.start.getTime());
+    expect(shortcutRange.end.getTime()).toBe(weekRange.end.getTime());
+  });
+
+  it("last-week: handles ISO year boundary (early January, previous week is in prior year)", () => {
+    // 2026-01-01 is a Thursday; ISO week 1 of 2026 starts Mon 2025-12-29
+    // So "last week" relative to 2026-01-05 (Mon of ISO week 2) is ISO week 1: 2025-12-29 – 2026-01-04
+    const earlyJan = new Date("2026-01-05T09:00:00");
+    const range = resolveShortcutRange("last-week", earlyJan);
+    expect(toDateKey(range.start)).toBe("2025-12-29");
+    expect(toDateKey(range.end)).toBe("2026-01-04");
+  });
 });
