@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/codeunity/workdone/compare/v0.8.0...v0.9.0) (2026-04-09)
+
+
+### Features
+
+* add --last-week shortcut flag for report ([#40](https://github.com/codeunity/workdone/issues/40)) ([b9612fe](https://github.com/codeunity/workdone/commit/b9612feca0ddec7c71c4717d0645f46bc23c01c4))
+
 ## [0.8.0](https://github.com/codeunity/workdone/compare/v0.7.1...v0.8.0) (2026-03-31)
 
 
