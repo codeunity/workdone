@@ -195,7 +195,7 @@ export function resolveDateRange(since: string, until?: string, now: Date = new 
   return { start: sinceDate, end: untilDate };
 }
 
-export type Shortcut = "today" | "yesterday" | "this-month" | "last-month";
+export type Shortcut = "today" | "yesterday" | "last-week" | "this-month" | "last-month";
 
 /**
  * Returns a DateRange for a named shortcut relative to now.
@@ -223,6 +223,8 @@ export function resolveShortcutRange(shortcut: Shortcut, now: Date = new Date())
       const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       return { start, end: now };
     }
+    case "last-week":
+      return resolveWeekRange({ kind: "relative", offset: -1 }, now);
     case "last-month": {
       const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
       const month = now.getMonth() === 0 ? 11 : now.getMonth() - 1;

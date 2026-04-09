@@ -92,6 +92,7 @@ DATE RANGE OPTIONS (mutually exclusive)
   --until <YYYY-MM-DD>   End date (23:59:59 local time); requires --since
   --today                Today from 00:00:00 until now
   --yesterday            Yesterday from 00:00:00 through 23:59:59
+  --last-week            Full previous ISO week (Mon 00:00:00 – Sun 23:59:59); same as --week=-1
   --this-month           First day of current month through now
   --last-month           Full previous calendar month
 
@@ -127,6 +128,7 @@ EXAMPLES
   workdone report --since 2026-03-20 --until 2026-03-30
   workdone report --today
   workdone report --yesterday
+  workdone report --last-week
   workdone report --this-month
   workdone report --last-month
   workdone report --view timeline
@@ -577,6 +579,13 @@ function parseReportOptions(args: string[]): {
         fail(`--last-month and --${shortcut} cannot be used together.\nTry: workdone report --help`);
       }
       shortcut = "last-month";
+      continue;
+    }
+    if (token === "--last-week") {
+      if (shortcut !== undefined) {
+        fail(`--last-week and --${shortcut} cannot be used together.\nTry: workdone report --help`);
+      }
+      shortcut = "last-week";
       continue;
     }
     fail(`unknown option '${token}'\nTry: workdone report --help`);
