@@ -3,6 +3,13 @@ const API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 
 export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
+export interface FileOps {
+  writeFile: (path: string, data: Uint8Array) => Promise<void>;
+  rename: (oldPath: string, newPath: string) => Promise<void>;
+  unlink: (path: string) => Promise<void>;
+  chmod: (path: string, mode: number) => Promise<void>;
+}
+
 function stripV(version: string): string {
   return version.startsWith("v") ? version.slice(1) : version;
 }
@@ -55,4 +62,89 @@ export function detectAssetName(platform: string, arch: string): string {
 
 export function getAssetName(): string {
   return detectAssetName(process.platform, process.arch);
+}
+
+export function buildDownloadUrls(
+  version: string,
+  assetName: string,
+): { binaryUrl: string; checksumUrl: string } {
+  const tag = version.startsWith("v") ? version : `v${version}`;
+  const base = `https://github.com/${REPO}/releases/download/${tag}`;
+  return {
+    binaryUrl: `${base}/${assetName}`,
+    checksumUrl: `${base}/${assetName}.sha256`,
+  };
+}
+
+async function sha256Hex(data: Uint8Array): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export async function downloadAndVerify(
+  fetcher: Fetcher,
+  binaryUrl: string,
+  checksumUrl: string,
+): Promise<Uint8Array> {
+  let binaryRes: Response;
+  try {
+    binaryRes = await fetcher(binaryUrl);
+  } catch (err) {
+    throw new Error(
+      `failed to download binary: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  if (!binaryRes.ok) {
+    throw new Error(`failed to download binary: HTTP ${binaryRes.status}`);
+  }
+  const binaryData = new Uint8Array(await binaryRes.arrayBuffer());
+
+  let checksumRes: Response;
+  try {
+    checksumRes = await fetcher(checksumUrl);
+  } catch (err) {
+    throw new Error(
+      `failed to download checksum: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  if (!checksumRes.ok) {
+    throw new Error(`failed to download checksum: HTTP ${checksumRes.status}`);
+  }
+  const checksumText = await checksumRes.text();
+  const expectedHash = checksumText.trim().split(/\s+/)[0];
+  if (!expectedHash) {
+    throw new Error("checksum file was empty");
+  }
+
+  const actualHash = await sha256Hex(binaryData);
+  if (actualHash !== expectedHash.toLowerCase()) {
+    throw new Error("checksum verification failed: downloaded binary may be corrupted");
+  }
+
+  return binaryData;
+}
+
+export async function replaceBinary(
+  currentPath: string,
+  binaryData: Uint8Array,
+  platform: string,
+  fileOps: FileOps,
+): Promise<void> {
+  if (platform === "win32") {
+    const oldPath = currentPath.endsWith(".exe")
+      ? currentPath.slice(0, -4) + ".old.exe"
+      : currentPath + ".old";
+    await fileOps.rename(currentPath, oldPath);
+    await fileOps.writeFile(currentPath, binaryData);
+    try {
+      await fileOps.unlink(oldPath);
+    } catch {
+      // Non-fatal: will be cleaned up by cleanupStaleBinary on next run
+    }
+  } else {
+    await fileOps.writeFile(currentPath, binaryData);
+    await fileOps.chmod(currentPath, 0o755);
+  }
 }

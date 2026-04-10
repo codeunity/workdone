@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 
 import path from "node:path";
-import { stat } from "node:fs/promises";
+import { stat, rename, writeFile, unlink, chmod } from "node:fs/promises";
+import { createInterface } from "node:readline/promises";
 import { loadConfig, saveConfig } from "./core/config";
 import { getGlobalGitUserEmail, syncGitSource } from "./core/git";
 import { printReport, printValidationResults } from "./core/output";
@@ -12,7 +13,8 @@ import type { DateRange, Shortcut } from "./core/time";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
 import { addUser, listUsers, removeUser } from "./core/users";
 import { VERSION } from "./core/version";
-import { fetchLatestVersion, getAssetName, isNewerVersion } from "./core/updater";
+import { fetchLatestVersion, getAssetName, isNewerVersion, buildDownloadUrls, downloadAndVerify, replaceBinary } from "./core/updater";
+import type { FileOps } from "./core/updater";
 import {
   buildSourceSelectionSession,
   formatSelectionEntryLabel,
@@ -1048,14 +1050,17 @@ function printHelpForPath(pathParts: string[]): void {
   }
 }
 
+const nodeFileOps: FileOps = { rename, writeFile, unlink, chmod };
+
 async function handleUpdate(args: string[]): Promise<void> {
   if (args[0] === "-h" || args[0] === "--help") {
     printUpdateHelp();
     return;
   }
 
+  let assetName: string;
   try {
-    getAssetName();
+    assetName = getAssetName();
   } catch {
     fail(`workdone update is not supported on this platform (${process.platform}/${process.arch})`);
   }
@@ -1073,6 +1078,35 @@ async function handleUpdate(args: string[]): Promise<void> {
   }
 
   console.log(`New version ${latestVersion} available (current: ${VERSION}).`);
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await rl.question("Update? [y/n] ");
+  rl.close();
+
+  if (answer.trim().toLowerCase() !== "y") {
+    console.log("Update cancelled.");
+    return;
+  }
+
+  const { binaryUrl, checksumUrl } = buildDownloadUrls(latestVersion, assetName);
+  process.stdout.write(`Downloading workdone ${latestVersion}...`);
+
+  let binaryData: Uint8Array;
+  try {
+    binaryData = await downloadAndVerify(fetch, binaryUrl, checksumUrl);
+  } catch (err) {
+    process.stdout.write("\n");
+    fail(`update failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  process.stdout.write(" done\n");
+
+  try {
+    await replaceBinary(process.execPath, binaryData, process.platform, nodeFileOps);
+  } catch (err) {
+    fail(`failed to replace binary: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  console.log(`Updated to ${latestVersion}.`);
 }
 
 async function main(): Promise<void> {
