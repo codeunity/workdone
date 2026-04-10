@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 
 import path from "node:path";
-import { stat } from "node:fs/promises";
+import { stat, rename, writeFile, unlink, chmod } from "node:fs/promises";
+import { createInterface } from "node:readline/promises";
 import { loadConfig, saveConfig } from "./core/config";
 import { getGlobalGitUserEmail, syncGitSource } from "./core/git";
 import { printReport, printValidationResults } from "./core/output";
@@ -12,6 +13,8 @@ import type { DateRange, Shortcut } from "./core/time";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
 import { addUser, listUsers, removeUser } from "./core/users";
 import { VERSION } from "./core/version";
+import { fetchLatestVersion, getAssetName, isNewerVersion, buildDownloadUrls, downloadAndVerify, replaceBinary, cleanupStaleBinary } from "./core/updater";
+import type { FileOps } from "./core/updater";
 import {
   buildSourceSelectionSession,
   formatSelectionEntryLabel,
@@ -39,6 +42,7 @@ COMMANDS
   users list             List configured author emails (falls back to global git email if empty)
   users add <email>      Add an author email to include in reports
   users remove <email>   Remove a configured author email
+  update                 Update workdone to the latest version
   help [command]         Show help for a command
 
 GLOBAL OPTIONS
@@ -351,6 +355,29 @@ EXAMPLES
   workdone sources validate`);
 }
 
+function printUpdateHelp(): void {
+  console.log(`Update workdone to the latest release.
+
+USAGE
+  workdone update
+
+DESCRIPTION
+  Checks the latest release on GitHub and compares it to the installed version.
+
+  If already up to date, prints a confirmation message and exits.
+
+  If a newer version is available, prints the new version number and prompts
+  [y/n] before downloading and replacing the installed binary.
+
+  The downloaded binary is verified with a SHA-256 checksum before the
+  existing binary is replaced. On Windows the old binary is renamed to
+  workdone.old.exe before being replaced, to work around the OS restriction
+  on overwriting a running executable.
+
+EXAMPLES
+  workdone update`);
+}
+
 function suggestCommand(unknown: string): string | null {
   if (unknown === "sourced") {
     return "sources";
@@ -360,6 +387,9 @@ function suggestCommand(unknown: string): string | null {
   }
   if (unknown === "user") {
     return "users";
+  }
+  if (unknown === "upate" || unknown === "updaet" || unknown === "upadte") {
+    return "update";
   }
   return null;
 }
@@ -1012,12 +1042,76 @@ function printHelpForPath(pathParts: string[]): void {
     case "users":
       printUsersHelp();
       return;
+    case "update":
+      printUpdateHelp();
+      return;
     default:
       fail(`unknown help topic '${joined}'\nTry: workdone --help`);
   }
 }
 
+const nodeFileOps: FileOps = { rename, writeFile, unlink, chmod };
+
+async function handleUpdate(args: string[]): Promise<void> {
+  if (args[0] === "-h" || args[0] === "--help") {
+    printUpdateHelp();
+    return;
+  }
+
+  let assetName: string;
+  try {
+    assetName = getAssetName();
+  } catch {
+    fail(`workdone update is not supported on this platform (${process.platform}/${process.arch})`);
+  }
+
+  let latestVersion: string;
+  try {
+    latestVersion = await fetchLatestVersion(fetch);
+  } catch (err) {
+    fail(`failed to check for updates: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  if (!isNewerVersion(VERSION, latestVersion)) {
+    console.log(`Already on the latest version (${VERSION}).`);
+    return;
+  }
+
+  console.log(`New version ${latestVersion} available (current: ${VERSION}).`);
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await rl.question("Update? [y/n] ");
+  rl.close();
+
+  if (answer.trim().toLowerCase() !== "y") {
+    console.log("Update cancelled.");
+    return;
+  }
+
+  const { binaryUrl, checksumUrl } = buildDownloadUrls(latestVersion, assetName);
+  process.stdout.write(`Downloading workdone ${latestVersion}...`);
+
+  let binaryData: Uint8Array;
+  try {
+    binaryData = await downloadAndVerify(fetch, binaryUrl, checksumUrl);
+  } catch (err) {
+    process.stdout.write("\n");
+    fail(`update failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  process.stdout.write(" done\n");
+
+  try {
+    await replaceBinary(process.execPath, binaryData, process.platform, nodeFileOps);
+  } catch (err) {
+    fail(`failed to replace binary: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  console.log(`Updated to ${latestVersion}.`);
+}
+
 async function main(): Promise<void> {
+  await cleanupStaleBinary(process.execPath, nodeFileOps);
+
   const args = process.argv.slice(2);
   const command = args[0];
 
@@ -1062,6 +1156,11 @@ async function main(): Promise<void> {
 
   if (command === "users") {
     await handleUsers(args.slice(1));
+    return;
+  }
+
+  if (command === "update") {
+    await handleUpdate(args.slice(1));
     return;
   }
 
