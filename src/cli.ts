@@ -12,6 +12,7 @@ import type { DateRange, Shortcut } from "./core/time";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
 import { addUser, listUsers, removeUser } from "./core/users";
 import { VERSION } from "./core/version";
+import { fetchLatestVersion, getAssetName, isNewerVersion } from "./core/updater";
 import {
   buildSourceSelectionSession,
   formatSelectionEntryLabel,
@@ -39,6 +40,7 @@ COMMANDS
   users list             List configured author emails (falls back to global git email if empty)
   users add <email>      Add an author email to include in reports
   users remove <email>   Remove a configured author email
+  update                 Update workdone to the latest version
   help [command]         Show help for a command
 
 GLOBAL OPTIONS
@@ -351,6 +353,29 @@ EXAMPLES
   workdone sources validate`);
 }
 
+function printUpdateHelp(): void {
+  console.log(`Update workdone to the latest release.
+
+USAGE
+  workdone update
+
+DESCRIPTION
+  Checks the latest release on GitHub and compares it to the installed version.
+
+  If already up to date, prints a confirmation message and exits.
+
+  If a newer version is available, prints the new version number and prompts
+  [y/n] before downloading and replacing the installed binary.
+
+  The downloaded binary is verified with a SHA-256 checksum before the
+  existing binary is replaced. On Windows the old binary is renamed to
+  workdone.old.exe before being replaced, to work around the OS restriction
+  on overwriting a running executable.
+
+EXAMPLES
+  workdone update`);
+}
+
 function suggestCommand(unknown: string): string | null {
   if (unknown === "sourced") {
     return "sources";
@@ -360,6 +385,9 @@ function suggestCommand(unknown: string): string | null {
   }
   if (unknown === "user") {
     return "users";
+  }
+  if (unknown === "upate" || unknown === "updaet" || unknown === "upadte") {
+    return "update";
   }
   return null;
 }
@@ -1012,9 +1040,39 @@ function printHelpForPath(pathParts: string[]): void {
     case "users":
       printUsersHelp();
       return;
+    case "update":
+      printUpdateHelp();
+      return;
     default:
       fail(`unknown help topic '${joined}'\nTry: workdone --help`);
   }
+}
+
+async function handleUpdate(args: string[]): Promise<void> {
+  if (args[0] === "-h" || args[0] === "--help") {
+    printUpdateHelp();
+    return;
+  }
+
+  try {
+    getAssetName();
+  } catch {
+    fail(`workdone update is not supported on this platform (${process.platform}/${process.arch})`);
+  }
+
+  let latestVersion: string;
+  try {
+    latestVersion = await fetchLatestVersion(fetch);
+  } catch (err) {
+    fail(`failed to check for updates: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  if (!isNewerVersion(VERSION, latestVersion)) {
+    console.log(`Already on the latest version (${VERSION}).`);
+    return;
+  }
+
+  console.log(`New version ${latestVersion} available (current: ${VERSION}).`);
 }
 
 async function main(): Promise<void> {
@@ -1062,6 +1120,11 @@ async function main(): Promise<void> {
 
   if (command === "users") {
     await handleUsers(args.slice(1));
+    return;
+  }
+
+  if (command === "update") {
+    await handleUpdate(args.slice(1));
     return;
   }
 
