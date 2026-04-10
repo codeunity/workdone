@@ -126,8 +126,7 @@ export async function downloadAndVerify(
   return binaryData;
 }
 
-export async function replaceBinary(
-  currentPath: string,
+export async function replaceBinary(  currentPath: string,
   binaryData: Uint8Array,
   platform: string,
   fileOps: FileOps,
@@ -146,5 +145,18 @@ export async function replaceBinary(
   } else {
     await fileOps.writeFile(currentPath, binaryData);
     await fileOps.chmod(currentPath, 0o755);
+  }
+}
+
+export async function cleanupStaleBinary(
+  currentPath: string,
+  fileOps: Pick<FileOps, "unlink">,
+): Promise<void> {
+  if (!currentPath.endsWith(".exe")) return;
+  const stalePath = currentPath.slice(0, -4) + ".old.exe";
+  try {
+    await fileOps.unlink(stalePath);
+  } catch {
+    // Silently ignore — file may not exist or may still be locked
   }
 }

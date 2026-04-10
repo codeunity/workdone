@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   buildDownloadUrls,
+  cleanupStaleBinary,
   detectAssetName,
   downloadAndVerify,
   fetchLatestVersion,
@@ -363,6 +364,46 @@ describe("replaceBinary — macOS", () => {
     await replaceBinary(currentPath, binaryData, "darwin", ops);
 
     expect(renamed).toHaveLength(0);
+    expect(deleted).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cleanupStaleBinary
+// ---------------------------------------------------------------------------
+
+describe("cleanupStaleBinary", () => {
+  it("deletes the .old.exe file when it exists", async () => {
+    const deleted: string[] = [];
+    const ops = { unlink: async (p: string) => { deleted.push(p); } };
+
+    await cleanupStaleBinary("C:\\workdone\\bin\\workdone.exe", ops);
+
+    expect(deleted).toEqual(["C:\\workdone\\bin\\workdone.old.exe"]);
+  });
+
+  it("does not throw when the stale file does not exist", async () => {
+    const ops = { unlink: async () => { throw new Error("ENOENT: no such file"); } };
+
+    await expect(
+      cleanupStaleBinary("C:\\workdone\\bin\\workdone.exe", ops),
+    ).resolves.toBeUndefined();
+  });
+
+  it("does not throw when unlink fails for any other reason", async () => {
+    const ops = { unlink: async () => { throw new Error("EPERM: permission denied"); } };
+
+    await expect(
+      cleanupStaleBinary("C:\\workdone\\bin\\workdone.exe", ops),
+    ).resolves.toBeUndefined();
+  });
+
+  it("is a no-op on non-Windows paths (no .exe suffix)", async () => {
+    const deleted: string[] = [];
+    const ops = { unlink: async (p: string) => { deleted.push(p); } };
+
+    await cleanupStaleBinary("/home/user/.workdone/bin/workdone", ops);
+
     expect(deleted).toHaveLength(0);
   });
 });

@@ -13,7 +13,7 @@ import type { DateRange, Shortcut } from "./core/time";
 import { createNodeSelectionIo, runSelectionSession } from "./core/selection";
 import { addUser, listUsers, removeUser } from "./core/users";
 import { VERSION } from "./core/version";
-import { fetchLatestVersion, getAssetName, isNewerVersion, buildDownloadUrls, downloadAndVerify, replaceBinary } from "./core/updater";
+import { fetchLatestVersion, getAssetName, isNewerVersion, buildDownloadUrls, downloadAndVerify, replaceBinary, cleanupStaleBinary } from "./core/updater";
 import type { FileOps } from "./core/updater";
 import {
   buildSourceSelectionSession,
@@ -1110,6 +1110,8 @@ async function handleUpdate(args: string[]): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  await cleanupStaleBinary(process.execPath, nodeFileOps);
+
   const args = process.argv.slice(2);
   const command = args[0];
 
