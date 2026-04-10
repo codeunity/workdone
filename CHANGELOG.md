@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/codeunity/workdone/compare/v0.9.0...v0.10.0) (2026-04-10)
+
+
+### Features
+
+* workdone update command — self-update to latest release ([#43](https://github.com/codeunity/workdone/issues/43)) ([3b0316b](https://github.com/codeunity/workdone/commit/3b0316bcf96d6c1d56677aa25fa1efc1f854b983))
+
 ## [0.9.0](https://github.com/codeunity/workdone/compare/v0.8.0...v0.9.0) (2026-04-09)
 
 
