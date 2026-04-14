@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll, afterAll, afterEach } from "bun:test";
-import { setupFixtures, ALICE, BOB, dateString } from "./helpers/fixtures";
+import { setupFixtures, ALICE, BOB, dateString, FIXED_WEEK_SINCE, FIXED_WEEK_UNTIL } from "./helpers/fixtures";
 import type { Fixtures } from "./helpers/fixtures";
 import { createConfig, configEnv } from "./helpers/config";
 import { runCli } from "./helpers/cli";
@@ -44,7 +44,7 @@ describe("workdone report", () => {
     const cfg = await createConfig(singleSource(), [ALICE]);
     cleanup = cfg.cleanup;
 
-    const result = runCli(["report"], configEnv(cfg.configPath));
+    const result = runCli(["report", "--since", FIXED_WEEK_SINCE, "--until", FIXED_WEEK_UNTIL], configEnv(cfg.configPath));
     expect(result.status).toBe(0);
     expect(result.stdout).toMatchSnapshot();
   });
@@ -53,7 +53,7 @@ describe("workdone report", () => {
     const cfg = await createConfig(singleSource(), [ALICE]);
     cleanup = cfg.cleanup;
 
-    const result = runCli(["report", "--view", "by-source"], configEnv(cfg.configPath));
+    const result = runCli(["report", "--view", "by-source", "--since", FIXED_WEEK_SINCE, "--until", FIXED_WEEK_UNTIL], configEnv(cfg.configPath));
     expect(result.status).toBe(0);
     expect(result.stdout).toMatchSnapshot();
   });
@@ -62,7 +62,7 @@ describe("workdone report", () => {
     const cfg = await createConfig(singleSource(), [ALICE]);
     cleanup = cfg.cleanup;
 
-    const result = runCli(["report", "--format", "markdown"], configEnv(cfg.configPath));
+    const result = runCli(["report", "--format", "markdown", "--since", FIXED_WEEK_SINCE, "--until", FIXED_WEEK_UNTIL], configEnv(cfg.configPath));
     expect(result.status).toBe(0);
     expect(result.stdout).toMatchSnapshot();
   });
@@ -71,7 +71,7 @@ describe("workdone report", () => {
     const cfg = await createConfig(singleSource(), [ALICE]);
     cleanup = cfg.cleanup;
 
-    const result = runCli(["report", "--files"], configEnv(cfg.configPath));
+    const result = runCli(["report", "--files", "--since", FIXED_WEEK_SINCE, "--until", FIXED_WEEK_UNTIL], configEnv(cfg.configPath));
     expect(result.status).toBe(0);
     expect(result.stdout).toMatchSnapshot();
   });
@@ -80,7 +80,7 @@ describe("workdone report", () => {
     const cfg = await createConfig(multiSource(), [ALICE, BOB]);
     cleanup = cfg.cleanup;
 
-    const result = runCli(["report"], configEnv(cfg.configPath));
+    const result = runCli(["report", "--since", FIXED_WEEK_SINCE, "--until", FIXED_WEEK_UNTIL], configEnv(cfg.configPath));
     expect(result.status).toBe(0);
     expect(result.stdout).toContain(ALICE);
     expect(result.stdout).toContain(BOB);
