@@ -128,6 +128,10 @@ workdone users remove <email>
   When multiple users are configured, each commit row shows the author.
   Falls back to your global git email when the list is empty.
 
+workdone update
+  Check for a newer release and, if one is available, prompt to apply it in place
+  with checksum verification.
+
 workdone config
   Print the config file path.
 
