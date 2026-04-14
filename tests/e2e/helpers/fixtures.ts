@@ -6,6 +6,10 @@ import { spawnSync } from "node:child_process";
 export const ALICE = "alice@example.com";
 export const BOB = "bob@example.com";
 
+// Fixed week used by snapshot tests: 2024-01-08 (Mon) – 2024-01-14 (Sun)
+export const FIXED_WEEK_SINCE = "2024-01-08";
+export const FIXED_WEEK_UNTIL = "2024-01-14";
+
 export interface Fixtures {
   // Single author: 3 commits this week (Mon/Tue/Wed) by alice
   repoSingle: string;
@@ -28,6 +32,17 @@ export function dateString(offsetDays = 0): string {
 /** Returns an ISO timestamp string without milliseconds */
 function toIso(d: Date): string {
   return d.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+/**
+ * Fixed local date at the given hour, formatted as an ISO timestamp.
+ * Using local midnight avoids date-boundary issues across timezones while
+ * keeping the displayed time consistent regardless of UTC offset.
+ */
+function fixedDateAt(isoDate: string, hour: number): string {
+  const d = new Date(`${isoDate}T00:00:00`); // local midnight
+  d.setHours(hour, 0, 0, 0);
+  return toIso(d);
 }
 
 /** ISO timestamp for today at the given hour */
@@ -79,18 +94,6 @@ function git(args: string[], cwd: string, env?: Record<string, string>): void {
   }
 }
 
-/** Returns the ISO string for Monday of the current ISO week at the given hour offset. */
-function mondayOffset(dayOffset: number, hour: number): string {
-  const now = new Date();
-  const day = now.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(now.getDate() + diffToMonday + dayOffset);
-  monday.setHours(hour, 0, 0, 0);
-  return toIso(monday);
-}
-
 async function createRepo(
   base: string,
   name: string,
@@ -126,32 +129,32 @@ async function createRepo(
 export async function setupFixtures(): Promise<Fixtures> {
   fixtureDir = await mkdtemp(path.join(os.tmpdir(), "workdone-e2e-fix-"));
 
-  // repo-single: alice commits on Mon, Tue, Wed of this week
+  // repo-single: alice commits on Mon, Tue, Wed of the fixed snapshot week
   const repoSingle = await createRepo(fixtureDir, "repo-single", [
     {
       subject: "add authentication middleware",
       author: ALICE,
       file: "auth.ts",
       content: "// auth middleware\nexport function authenticate() {}\n",
-      ts: mondayOffset(0, 9),  // Monday 09:00
+      ts: fixedDateAt(FIXED_WEEK_SINCE, 9),  // Monday 09:00
     },
     {
       subject: "add user profile endpoint",
       author: ALICE,
       file: "profile.ts",
       content: "// user profile\nexport function getProfile() {}\n",
-      ts: mondayOffset(1, 11), // Tuesday 11:00
+      ts: fixedDateAt("2024-01-09", 11), // Tuesday 11:00
     },
     {
       subject: "fix token expiry validation",
       author: ALICE,
       file: "token.ts",
       content: "// token validation\nexport function validateToken() {}\n",
-      ts: mondayOffset(2, 15), // Wednesday 15:00
+      ts: fixedDateAt("2024-01-10", 15), // Wednesday 15:00
     },
   ]);
 
-  // repo-multi: alice and bob both commit this week
+  // repo-multi: alice and bob both commit in the fixed snapshot week
   const multiBase = path.join(fixtureDir, "repo-multi");
   await mkdir(multiBase, { recursive: true });
   git(["init"], multiBase);
@@ -162,8 +165,8 @@ export async function setupFixtures(): Promise<Fixtures> {
   await writeFile(path.join(multiBase, "api.ts"), "// api layer\nexport function fetchData() {}\n", "utf8");
   git(["add", "api.ts"], multiBase);
   git(["commit", "-m", "add data fetching layer"], multiBase, {
-    GIT_AUTHOR_DATE: mondayOffset(0, 10),
-    GIT_COMMITTER_DATE: mondayOffset(0, 10),
+    GIT_AUTHOR_DATE: fixedDateAt(FIXED_WEEK_SINCE, 10),
+    GIT_COMMITTER_DATE: fixedDateAt(FIXED_WEEK_SINCE, 10),
     GIT_AUTHOR_EMAIL: ALICE,
     GIT_AUTHOR_NAME: "Test User",
     GIT_COMMITTER_EMAIL: ALICE,
@@ -173,8 +176,8 @@ export async function setupFixtures(): Promise<Fixtures> {
   await writeFile(path.join(multiBase, "cache.ts"), "// cache layer\nexport function cacheResult() {}\n", "utf8");
   git(["add", "cache.ts"], multiBase);
   git(["commit", "-m", "add result caching"], multiBase, {
-    GIT_AUTHOR_DATE: mondayOffset(1, 14),
-    GIT_COMMITTER_DATE: mondayOffset(1, 14),
+    GIT_AUTHOR_DATE: fixedDateAt("2024-01-09", 14),
+    GIT_COMMITTER_DATE: fixedDateAt("2024-01-09", 14),
     GIT_AUTHOR_EMAIL: ALICE,
     GIT_AUTHOR_NAME: "Test User",
     GIT_COMMITTER_EMAIL: ALICE,
@@ -185,8 +188,8 @@ export async function setupFixtures(): Promise<Fixtures> {
   await writeFile(path.join(multiBase, "db.ts"), "// database layer\nexport function query() {}\n", "utf8");
   git(["add", "db.ts"], multiBase);
   git(["commit", "-m", "add database query builder"], multiBase, {
-    GIT_AUTHOR_DATE: mondayOffset(0, 16),
-    GIT_COMMITTER_DATE: mondayOffset(0, 16),
+    GIT_AUTHOR_DATE: fixedDateAt(FIXED_WEEK_SINCE, 16),
+    GIT_COMMITTER_DATE: fixedDateAt(FIXED_WEEK_SINCE, 16),
     GIT_AUTHOR_EMAIL: BOB,
     GIT_AUTHOR_NAME: "Bob",
     GIT_COMMITTER_EMAIL: BOB,
@@ -196,8 +199,8 @@ export async function setupFixtures(): Promise<Fixtures> {
   await writeFile(path.join(multiBase, "migrations.ts"), "// migrations\nexport function runMigrations() {}\n", "utf8");
   git(["add", "migrations.ts"], multiBase);
   git(["commit", "-m", "add migration runner"], multiBase, {
-    GIT_AUTHOR_DATE: mondayOffset(2, 9),
-    GIT_COMMITTER_DATE: mondayOffset(2, 9),
+    GIT_AUTHOR_DATE: fixedDateAt("2024-01-10", 9),
+    GIT_COMMITTER_DATE: fixedDateAt("2024-01-10", 9),
     GIT_AUTHOR_EMAIL: BOB,
     GIT_AUTHOR_NAME: "Bob",
     GIT_COMMITTER_EMAIL: BOB,

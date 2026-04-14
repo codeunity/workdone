@@ -1,145 +1,145 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
 exports[`workdone report default timeline text view matches snapshot 1`] = `
-"Week starting 2026-04-06 (Monday, local time)
+"Week starting 2024-01-08 (Monday, local time)
 
-2026-04-08 (Wed)
+2024-01-10 (Wed)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source       Hash     Files+  -  Δ  Bin  Subject
 -----  -----------  -------  -----  -  -  -  ---  -------
-15:00  repo-single  326b258      1  2  0  2    0  fix token expiry validation
+15:00  repo-single  ade36ec      1  2  0  2    0  fix token expiry validation
 
 -------------------------------------------------------------------------------
 
-2026-04-07 (Tue)
+2024-01-09 (Tue)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source       Hash     Files+  -  Δ  Bin  Subject
 -----  -----------  -------  -----  -  -  -  ---  -------
-11:00  repo-single  3749dec      1  2  0  2    0  add user profile endpoint
+11:00  repo-single  399c5db      1  2  0  2    0  add user profile endpoint
 
 -------------------------------------------------------------------------------
 
-2026-04-06 (Mon)
+2024-01-08 (Mon)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source       Hash     Files+  -  Δ  Bin  Subject
 -----  -----------  -------  -----  -  -  -  ---  -------
-09:00  repo-single  23573c8      1  2  0  2    0  add authentication middleware
+09:00  repo-single  72e3aad      1  2  0  2    0  add authentication middleware
 "
 `;
 
 exports[`workdone report by-source view matches snapshot 1`] = `
-"Week starting 2026-04-06 (Monday, local time)
+"Week starting 2024-01-08 (Monday, local time)
 
 ===============================================================================
 [repo-single]
 Source total: 3 commits, 3 files, +6 -0, 6, 0 binaries
 ===============================================================================
 
-2026-04-08 (Wed)
+2024-01-10 (Wed)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Hash     Files+  -  Δ  Bin  Subject
 -----  -------  -----  -  -  -  ---  -------
-15:00  326b258      1  2  0  2    0  fix token expiry validation
+15:00  ade36ec      1  2  0  2    0  fix token expiry validation
 
 -------------------------------------------------------------------------------
 
-2026-04-07 (Tue)
+2024-01-09 (Tue)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Hash     Files+  -  Δ  Bin  Subject
 -----  -------  -----  -  -  -  ---  -------
-11:00  3749dec      1  2  0  2    0  add user profile endpoint
+11:00  399c5db      1  2  0  2    0  add user profile endpoint
 
 -------------------------------------------------------------------------------
 
-2026-04-06 (Mon)
+2024-01-08 (Mon)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Hash     Files+  -  Δ  Bin  Subject
 -----  -------  -----  -  -  -  ---  -------
-09:00  23573c8      1  2  0  2    0  add authentication middleware
+09:00  72e3aad      1  2  0  2    0  add authentication middleware
 "
 `;
 
 exports[`workdone report markdown format matches snapshot 1`] = `
 "# Workdone Report
-Week starting: 2026-04-06 (Monday, local time)
+Week starting: 2024-01-08 (Monday, local time)
 
-## 2026-04-08 (Wed)
+## 2024-01-10 (Wed)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 
 | Time | Source | Hash | Files | + | - | Δ | Bin | Subject |
 |---|---|---|---:|---:|---:|---:|---:|---|
-| 15:00 | repo-single | 326b258 | 1 | 2 | 0 | 2 | 0 | fix token expiry validation |
+| 15:00 | repo-single | ade36ec | 1 | 2 | 0 | 2 | 0 | fix token expiry validation |
 
-## 2026-04-07 (Tue)
+## 2024-01-09 (Tue)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 
 | Time | Source | Hash | Files | + | - | Δ | Bin | Subject |
 |---|---|---|---:|---:|---:|---:|---:|---|
-| 11:00 | repo-single | 3749dec | 1 | 2 | 0 | 2 | 0 | add user profile endpoint |
+| 11:00 | repo-single | 399c5db | 1 | 2 | 0 | 2 | 0 | add user profile endpoint |
 
-## 2026-04-06 (Mon)
+## 2024-01-08 (Mon)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 
 | Time | Source | Hash | Files | + | - | Δ | Bin | Subject |
 |---|---|---|---:|---:|---:|---:|---:|---|
-| 09:00 | repo-single | 23573c8 | 1 | 2 | 0 | 2 | 0 | add authentication middleware |
+| 09:00 | repo-single | 72e3aad | 1 | 2 | 0 | 2 | 0 | add authentication middleware |
 "
 `;
 
 exports[`workdone report --files flag matches snapshot 1`] = `
-"Week starting 2026-04-06 (Monday, local time)
+"Week starting 2024-01-08 (Monday, local time)
 
-2026-04-08 (Wed)
+2024-01-10 (Wed)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source       Hash     Files+  -  Δ  Bin  Subject
 -----  -----------  -------  -----  -  -  -  ---  -------
-15:00  repo-single  326b258      1  2  0  2    0  fix token expiry validation
+15:00  repo-single  ade36ec      1  2  0  2    0  fix token expiry validation
   token.ts (+2 -0, 2)
 
 -------------------------------------------------------------------------------
 
-2026-04-07 (Tue)
+2024-01-09 (Tue)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source       Hash     Files+  -  Δ  Bin  Subject
 -----  -----------  -------  -----  -  -  -  ---  -------
-11:00  repo-single  3749dec      1  2  0  2    0  add user profile endpoint
+11:00  repo-single  399c5db      1  2  0  2    0  add user profile endpoint
   profile.ts (+2 -0, 2)
 
 -------------------------------------------------------------------------------
 
-2026-04-06 (Mon)
+2024-01-08 (Mon)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source       Hash     Files+  -  Δ  Bin  Subject
 -----  -----------  -------  -----  -  -  -  ---  -------
-09:00  repo-single  23573c8      1  2  0  2    0  add authentication middleware
+09:00  repo-single  72e3aad      1  2  0  2    0  add authentication middleware
   auth.ts (+2 -0, 2)
 "
 `;
 
 exports[`workdone report multi-user report includes Author column and both users' commits 1`] = `
-"Week starting 2026-04-06 (Monday, local time)
+"Week starting 2024-01-08 (Monday, local time)
 
-2026-04-08 (Wed)
+2024-01-10 (Wed)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source      Hash     Author           Files+  -  Δ  Bin  Subject
 -----  ----------  -------  ---------------  -----  -  -  -  ---  -------
-09:00  repo-multi  81db138  bob@example.com      1  2  0  2    0  add migration runner
+09:00  repo-multi  47ffcbc  bob@example.com      1  2  0  2    0  add migration runner
 
 -------------------------------------------------------------------------------
 
-2026-04-07 (Tue)
+2024-01-09 (Tue)
 Day total: 1 commits, 1 files, +2 -0, 2, 0 binaries
 Time   Source      Hash     Author             Files+  -  Δ  Bin  Subject
 -----  ----------  -------  -----------------  -----  -  -  -  ---  -------
-14:00  repo-multi  60db86c  alice@example.com      1  2  0  2    0  add result caching
+14:00  repo-multi  d7dbf25  alice@example.com      1  2  0  2    0  add result caching
 
 -------------------------------------------------------------------------------
 
-2026-04-06 (Mon)
+2024-01-08 (Mon)
 Day total: 2 commits, 2 files, +4 -0, 4, 0 binaries
 Time   Source      Hash     Author             Files+  -  Δ  Bin  Subject
 -----  ----------  -------  -----------------  -----  -  -  -  ---  -------
-16:00  repo-multi  f778011  bob@example.com        1  2  0  2    0  add database query builder
-10:00  repo-multi  3dac69d  alice@example.com      1  2  0  2    0  add data fetching layer
+16:00  repo-multi  0b64b9d  bob@example.com        1  2  0  2    0  add database query builder
+10:00  repo-multi  cf98d10  alice@example.com      1  2  0  2    0  add data fetching layer
 "
 `;
