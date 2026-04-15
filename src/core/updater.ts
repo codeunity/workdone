@@ -143,8 +143,15 @@ export async function replaceBinary(  currentPath: string,
       // Non-fatal: will be cleaned up by cleanupStaleBinary on next run
     }
   } else {
-    await fileOps.writeFile(currentPath, binaryData);
-    await fileOps.chmod(currentPath, 0o755);
+    // Write to a temp file first, then atomically rename over the target.
+    // Writing directly to process.execPath while the binary is running causes
+    // SIGKILL on macOS because the kernel detects modification of an active
+    // code-signed executable. An atomic rename swaps the directory entry to a
+    // new inode, leaving the running process's mapping of the old inode intact.
+    const tempPath = currentPath + ".new";
+    await fileOps.writeFile(tempPath, binaryData);
+    await fileOps.chmod(tempPath, 0o755);
+    await fileOps.rename(tempPath, currentPath);
   }
 }
 
