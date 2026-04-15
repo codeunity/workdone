@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.1](https://github.com/codeunity/workdone/compare/v0.10.0...v0.10.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* use atomic rename for macOS self-update to prevent SIGKILL ([#48](https://github.com/codeunity/workdone/issues/48)) ([c395c75](https://github.com/codeunity/workdone/commit/c395c75f9eb2ed8b85d7f934265b22a02dd290bd))
+
+
+### Documentation
+
+* document workdone update command in README ([#45](https://github.com/codeunity/workdone/issues/45)) ([936d1b1](https://github.com/codeunity/workdone/commit/936d1b176aca87fd47914c7fd4928f4f0bea5a7d))
+
 ## [0.10.0](https://github.com/codeunity/workdone/compare/v0.9.0...v0.10.0) (2026-04-10)
 
 
