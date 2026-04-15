@@ -344,27 +344,28 @@ describe("replaceBinary — Windows", () => {
 describe("replaceBinary — macOS", () => {
   const binaryData = new TextEncoder().encode("new binary content");
   const currentPath = "/home/user/.workdone/bin/workdone";
+  const expectedTempPath = currentPath + ".new";
 
-  it("writes the new binary directly to the current path", async () => {
+  it("writes the new binary to a .new temp file, not directly to the current path", async () => {
     const { ops, written } = makeFileOps();
     await replaceBinary(currentPath, binaryData, "darwin", ops);
 
-    expect(written.get(currentPath)).toEqual(binaryData);
+    expect(written.get(expectedTempPath)).toEqual(binaryData);
+    expect(written.has(currentPath)).toBe(false);
   });
 
-  it("sets executable permissions (0o755) on the new binary", async () => {
+  it("sets executable permissions (0o755) on the temp file before renaming", async () => {
     const { ops, chmods } = makeFileOps();
     await replaceBinary(currentPath, binaryData, "darwin", ops);
 
-    expect(chmods).toEqual([[currentPath, 0o755]]);
+    expect(chmods).toEqual([[expectedTempPath, 0o755]]);
   });
 
-  it("does not rename or delete any file", async () => {
-    const { ops, renamed, deleted } = makeFileOps();
+  it("atomically renames the temp file over the current path", async () => {
+    const { ops, renamed } = makeFileOps();
     await replaceBinary(currentPath, binaryData, "darwin", ops);
 
-    expect(renamed).toHaveLength(0);
-    expect(deleted).toHaveLength(0);
+    expect(renamed).toEqual([[expectedTempPath, currentPath]]);
   });
 });
 
