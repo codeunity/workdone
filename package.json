@@ -1,6 +1,6 @@
 {
   "name": "workdone",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "CLI to report weekly work from local git repos",
   "type": "module",
   "bin": {

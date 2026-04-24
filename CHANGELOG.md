@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.2](https://github.com/codeunity/workdone/compare/v0.10.1...v0.10.2) (2026-04-24)
+
+
+### Bug Fixes
+
+* rebuild with Bun (1.3.13 - Apr 20) to resolve macOS compile issue ([#49](https://github.com/codeunity/workdone/issues/49)) ([c51759e](https://github.com/codeunity/workdone/commit/c51759e406c10ddb26cf13fc9308dc2ca3478210))
+
 ## [0.10.1](https://github.com/codeunity/workdone/compare/v0.10.0...v0.10.1) (2026-04-15)
 
 
